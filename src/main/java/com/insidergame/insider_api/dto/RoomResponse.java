@@ -15,7 +15,6 @@ import java.time.LocalDateTime;
 @Builder
 public class RoomResponse {
 
-    private Long id;
     private String roomCode;
     private String roomName;
     private Integer maxPlayers;

@@ -131,6 +131,7 @@ public class RoomServiceImpl implements RoomService {
             List<Room> rooms = roomManager.getAvailableRooms();
 
             List<RoomResponse> availableRooms = rooms.stream()
+                    .sorted((r1, r2) -> r2.getCreatedAt().compareTo(r1.getCreatedAt())) // Sort by createdAt DESC (newest first)
                     .map(this::buildRoomResponse)
                     .collect(Collectors.toList());
 
@@ -165,7 +166,6 @@ public class RoomServiceImpl implements RoomService {
 
     private RoomResponse buildRoomResponse(Room room) {
         return RoomResponse.builder()
-                .id(null) // No database ID in memory
                 .roomCode(room.getRoomCode())
                 .roomName(room.getRoomName())
                 .maxPlayers(room.getMaxPlayers())
