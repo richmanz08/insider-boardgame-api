@@ -3,6 +3,7 @@ package com.insidergame.insider_api.api.room;
 import com.insidergame.insider_api.common.ApiResponse;
 import com.insidergame.insider_api.dto.CreateRoomRequest;
 import com.insidergame.insider_api.dto.JoinRoomRequest;
+import com.insidergame.insider_api.dto.LeaveRoomRequest;
 import com.insidergame.insider_api.dto.RoomResponse;
 import com.insidergame.insider_api.service.RoomService;
 import org.springframework.http.ResponseEntity;
@@ -45,9 +46,9 @@ public class RoomController {
      * POST /api/room/leave
      */
     @PostMapping("/leave")
-    public ResponseEntity<ApiResponse<RoomResponse>> leaveRoom(
-            @RequestParam String roomCode,
-            @RequestParam String playerUuid) {
+    public ResponseEntity<ApiResponse<RoomResponse>> leaveRoom(@RequestBody LeaveRoomRequest request) {
+        String roomCode = request.getRoomCode();
+        String playerUuid = request.getPlayerUuid();
         ApiResponse<RoomResponse> response = roomService.leaveRoom(roomCode, playerUuid);
         return ResponseEntity.status(response.getStatus()).body(response);
     }

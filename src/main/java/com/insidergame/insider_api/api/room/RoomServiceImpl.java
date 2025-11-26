@@ -3,6 +3,7 @@ package com.insidergame.insider_api.api.room;
 import com.insidergame.insider_api.common.ApiResponse;
 import com.insidergame.insider_api.dto.CreateRoomRequest;
 import com.insidergame.insider_api.dto.JoinRoomRequest;
+import com.insidergame.insider_api.dto.LeaveRoomRequest;
 import com.insidergame.insider_api.dto.RoomResponse;
 import com.insidergame.insider_api.manager.RoomManager;
 import com.insidergame.insider_api.model.Player;
