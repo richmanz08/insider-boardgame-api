@@ -10,6 +10,7 @@ import com.insidergame.insider_api.model.Player;
 import com.insidergame.insider_api.model.Room;
 import com.insidergame.insider_api.service.RoomService;
 import com.insidergame.insider_api.util.RoomCodeGenerator;
+import com.insidergame.insider_api.websocket.RoomWebSocketController;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -22,10 +23,12 @@ public class RoomServiceImpl implements RoomService {
 
     private final RoomManager roomManager;
     private final RoomCodeGenerator roomCodeGenerator;
+    private final RoomWebSocketController webSocketController;
 
-    public RoomServiceImpl(RoomManager roomManager, RoomCodeGenerator roomCodeGenerator) {
+    public RoomServiceImpl(RoomManager roomManager, RoomCodeGenerator roomCodeGenerator, RoomWebSocketController webSocketController) {
         this.roomManager = roomManager;
         this.roomCodeGenerator = roomCodeGenerator;
+        this.webSocketController = webSocketController;
     }
 
     @Override
@@ -102,6 +105,9 @@ public class RoomServiceImpl implements RoomService {
             // Build response AFTER adding player (so currentPlayers count is updated)
             RoomResponse response = buildRoomResponse(room);
 
+            // Broadcast to WebSocket subscribers
+            webSocketController.broadcastRoomUpdate(request.getRoomCode(), "PLAYER_JOINED");
+
             return new ApiResponse<>(true, "Joined room successfully", response, HttpStatus.OK);
 
         } catch (Exception e) {
@@ -110,21 +116,24 @@ public class RoomServiceImpl implements RoomService {
     }
 
     @Override
-    public ApiResponse<RoomResponse> leaveRoom(String roomCode, String playerUuid) {
+    public ApiResponse<RoomResponse> leaveRoom(LeaveRoomRequest request) {
         try {
-            Room room = roomManager.getRoom(roomCode).orElse(null);
+            Room room = roomManager.getRoom(request.getRoomCode()).orElse(null);
 
             if (room == null) {
                 return new ApiResponse<>(false, "Room not found", null, HttpStatus.NOT_FOUND);
             }
 
             // Remove player from room
-            boolean roomDeleted = roomManager.removePlayerFromRoom(roomCode, playerUuid);
+            boolean roomDeleted = roomManager.removePlayerFromRoom(request.getRoomCode(), request.getPlayerUuid());
 
             if (roomDeleted) {
                 // Room was deleted because it's empty
                 return new ApiResponse<>(true, "Left room successfully (room deleted - empty)", null, HttpStatus.OK);
             }
+
+            // Broadcast to WebSocket subscribers
+            webSocketController.broadcastRoomUpdate(request.getRoomCode(), "PLAYER_LEFT");
 
             // Room still exists, return updated room info
             RoomResponse response = buildRoomResponse(room);

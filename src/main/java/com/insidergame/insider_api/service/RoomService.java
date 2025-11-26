@@ -14,7 +14,7 @@ public interface RoomService {
 
     ApiResponse<RoomResponse> joinRoom(JoinRoomRequest request);
 
-    ApiResponse<RoomResponse> leaveRoom(String roomCode, String playerUuid);
+    ApiResponse<RoomResponse> leaveRoom(LeaveRoomRequest request);
 
     ApiResponse<RoomResponse> getRoomByCode(String roomCode);
 

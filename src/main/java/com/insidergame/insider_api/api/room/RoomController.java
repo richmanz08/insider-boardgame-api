@@ -4,21 +4,30 @@ import com.insidergame.insider_api.common.ApiResponse;
 import com.insidergame.insider_api.dto.CreateRoomRequest;
 import com.insidergame.insider_api.dto.JoinRoomRequest;
 import com.insidergame.insider_api.dto.LeaveRoomRequest;
+import com.insidergame.insider_api.dto.PlayerDto;
 import com.insidergame.insider_api.dto.RoomResponse;
+import com.insidergame.insider_api.manager.RoomManager;
+import com.insidergame.insider_api.model.Player;
+import com.insidergame.insider_api.model.Room;
 import com.insidergame.insider_api.service.RoomService;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/room")
 public class RoomController {
 
-   RoomService roomService;
+    private final RoomService roomService;
+    private final RoomManager roomManager;
 
-    public RoomController(RoomService roomService) {
+    public RoomController(RoomService roomService, RoomManager roomManager) {
         this.roomService = roomService;
+        this.roomManager = roomManager;
     }
 
     /**
@@ -47,9 +56,7 @@ public class RoomController {
      */
     @PostMapping("/leave")
     public ResponseEntity<ApiResponse<RoomResponse>> leaveRoom(@RequestBody LeaveRoomRequest request) {
-        String roomCode = request.getRoomCode();
-        String playerUuid = request.getPlayerUuid();
-        ApiResponse<RoomResponse> response = roomService.leaveRoom(roomCode, playerUuid);
+        ApiResponse<RoomResponse> response = roomService.leaveRoom(request);
         return ResponseEntity.status(response.getStatus()).body(response);
     }
 
@@ -74,6 +81,26 @@ public class RoomController {
     }
 
     /**
+     * Get all players in a room
+     * GET /api/room/{roomCode}/players
+     */
+    @GetMapping("/{roomCode}/players")
+    public ResponseEntity<ApiResponse<List<PlayerDto>>> getRoomPlayers(@PathVariable String roomCode) {
+        Room room = roomManager.getRoom(roomCode).orElse(null);
+
+        if (room == null) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(new ApiResponse<>(false, "Room not found", null, HttpStatus.NOT_FOUND));
+        }
+
+        List<PlayerDto> players = room.getPlayers().stream()
+                .map(this::convertToPlayerDto)
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(new ApiResponse<>(true, "Players retrieved successfully", players, HttpStatus.OK));
+    }
+
+    /**
      * Delete room (only host can delete)
      * DELETE /api/room/{roomCode}
      */
@@ -83,6 +110,17 @@ public class RoomController {
             @RequestParam String hostUuid) {
         ApiResponse<Void> response = roomService.deleteRoom(roomCode, hostUuid);
         return ResponseEntity.status(response.getStatus()).body(response);
+    }
+
+    private PlayerDto convertToPlayerDto(Player player) {
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+        return PlayerDto.builder()
+                .uuid(player.getUuid())
+                .playerName(player.getPlayerName())
+                .isHost(player.isHost())
+                .isReady(player.isReady())
+                .joinedAt(player.getJoinedAt().format(formatter))
+                .build();
     }
 }
 
