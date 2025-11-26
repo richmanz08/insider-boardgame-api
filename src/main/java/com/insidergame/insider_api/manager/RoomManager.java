@@ -77,6 +77,14 @@ public class RoomManager {
     public boolean addPlayerToRoom(String roomCode, Player player) {
         Room room = rooms.get(roomCode);
         if (room != null && !room.isFull() && "WAITING".equals(room.getStatus())) {
+            // Check if player already exists in the room (by UUID)
+            boolean playerExists = room.getPlayers().stream()
+                    .anyMatch(p -> p.getUuid().equals(player.getUuid()));
+
+            if (playerExists) {
+                return false; // Player already in room, don't add again
+            }
+
             room.addPlayer(player);
             return true;
         }
@@ -150,6 +158,18 @@ public class RoomManager {
                 .filter(room -> room.getPlayers().stream()
                         .anyMatch(player -> player.getUuid().equals(playerUuid)))
                 .findFirst();
+    }
+
+    /**
+     * Check if a player is already in a specific room
+     */
+    public boolean isPlayerInRoom(String roomCode, String playerUuid) {
+        Room room = rooms.get(roomCode);
+        if (room == null) {
+            return false;
+        }
+        return room.getPlayers().stream()
+                .anyMatch(player -> player.getUuid().equals(playerUuid));
     }
 }
 

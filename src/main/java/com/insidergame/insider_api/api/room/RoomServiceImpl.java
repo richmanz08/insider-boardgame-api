@@ -75,6 +75,13 @@ public class RoomServiceImpl implements RoomService {
                 return new ApiResponse<>(false, "Room not found", null, HttpStatus.NOT_FOUND);
             }
 
+            // Check if player is already in the room
+            if (roomManager.isPlayerInRoom(request.getRoomCode(), request.getPlayerUuid())) {
+                // Player already in room, just return current room state
+                RoomResponse response = buildRoomResponse(room);
+                return new ApiResponse<>(true, "Player already in room", response, HttpStatus.OK);
+            }
+
             // Check if room is full
             if (room.isFull()) {
                 return new ApiResponse<>(false, "Room is full", null, HttpStatus.CONFLICT);
@@ -100,7 +107,11 @@ public class RoomServiceImpl implements RoomService {
                     .isHost(false)
                     .build();
 
-            roomManager.addPlayerToRoom(request.getRoomCode(), player);
+            boolean added = roomManager.addPlayerToRoom(request.getRoomCode(), player);
+
+            if (!added) {
+                return new ApiResponse<>(false, "Failed to add player to room", null, HttpStatus.CONFLICT);
+            }
 
             // Build response AFTER adding player (so currentPlayers count is updated)
             RoomResponse response = buildRoomResponse(room);
