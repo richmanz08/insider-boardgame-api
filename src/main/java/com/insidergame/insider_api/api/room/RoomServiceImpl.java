@@ -98,13 +98,39 @@ public class RoomServiceImpl implements RoomService {
 
             roomManager.addPlayerToRoom(request.getRoomCode(), player);
 
-            // Build response
+            // Build response AFTER adding player (so currentPlayers count is updated)
             RoomResponse response = buildRoomResponse(room);
 
             return new ApiResponse<>(true, "Joined room successfully", response, HttpStatus.OK);
 
         } catch (Exception e) {
             return new ApiResponse<>(false, "Error joining room: " + e.getMessage(), null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Override
+    public ApiResponse<RoomResponse> leaveRoom(String roomCode, String playerUuid) {
+        try {
+            Room room = roomManager.getRoom(roomCode).orElse(null);
+
+            if (room == null) {
+                return new ApiResponse<>(false, "Room not found", null, HttpStatus.NOT_FOUND);
+            }
+
+            // Remove player from room
+            boolean roomDeleted = roomManager.removePlayerFromRoom(roomCode, playerUuid);
+
+            if (roomDeleted) {
+                // Room was deleted because it's empty
+                return new ApiResponse<>(true, "Left room successfully (room deleted - empty)", null, HttpStatus.OK);
+            }
+
+            // Room still exists, return updated room info
+            RoomResponse response = buildRoomResponse(room);
+            return new ApiResponse<>(true, "Left room successfully", response, HttpStatus.OK);
+
+        } catch (Exception e) {
+            return new ApiResponse<>(false, "Error leaving room: " + e.getMessage(), null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 

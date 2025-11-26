@@ -41,6 +41,18 @@ public class RoomController {
     }
 
     /**
+     * Leave room
+     * POST /api/room/leave
+     */
+    @PostMapping("/leave")
+    public ResponseEntity<ApiResponse<RoomResponse>> leaveRoom(
+            @RequestParam String roomCode,
+            @RequestParam String playerUuid) {
+        ApiResponse<RoomResponse> response = roomService.leaveRoom(roomCode, playerUuid);
+        return ResponseEntity.status(response.getStatus()).body(response);
+    }
+
+    /**
      * Get room by code
      * GET /api/room/{roomCode}
      */

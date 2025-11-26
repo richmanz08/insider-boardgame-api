@@ -13,6 +13,8 @@ public interface RoomService {
 
     ApiResponse<RoomResponse> joinRoom(JoinRoomRequest request);
 
+    ApiResponse<RoomResponse> leaveRoom(String roomCode, String playerUuid);
+
     ApiResponse<RoomResponse> getRoomByCode(String roomCode);
 
     ApiResponse<List<RoomResponse>> getAvailableRooms();
