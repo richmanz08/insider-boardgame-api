@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -55,6 +56,9 @@ public class RoomServiceImpl implements RoomService {
                     request.getHostUuid(),
                     request.getHostName()
             );
+
+            // Mock additional players (not counting host) up to 4, but don't exceed room capacity
+            mockPlayerBot(room, roomCode);
 
             // Broadcast initial room state so subscribers (if any) receive the room snapshot
             try {
@@ -239,6 +243,36 @@ public class RoomServiceImpl implements RoomService {
                 .hostName(room.getHostName())
                 .createdAt(room.getCreatedAt())
                 .build();
+    }
+
+    private  boolean mockPlayerBot(Room room, String roomCode) {
+        try {
+            int slotsAvailable = Math.max(0, room.getMaxPlayers() - room.getPlayers().size());
+            int toMock = Math.min(4, slotsAvailable);
+            for (int i = 1; i <= toMock; i++) {
+                Player bot = Player.builder()
+                        .uuid(UUID.randomUUID().toString())
+                        .playerName("Bot " + i)
+                        .joinedAt(LocalDateTime.now())
+                        .isReady(true)
+                        .isHost(false)
+                        .isActive(true)
+                        .lastActiveAt(LocalDateTime.now())
+                        .build();
+
+                // Use roomManager to add so capacity/status checks are respected
+                boolean added = roomManager.addPlayerToRoom(roomCode, bot);
+                if (!added) {
+                    // If failed to add (race or capacity), stop trying
+                    break;
+
+                }
+            }
+            return true;
+        } catch (Exception ignored) {
+            // Ignore mocking errors - room creation should still succeed
+            return false;
+        }
     }
 }
 
