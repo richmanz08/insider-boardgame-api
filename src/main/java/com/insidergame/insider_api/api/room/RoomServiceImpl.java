@@ -245,7 +245,7 @@ public class RoomServiceImpl implements RoomService {
                 .build();
     }
 
-    private  boolean mockPlayerBot(Room room, String roomCode) {
+    private void mockPlayerBot(Room room, String roomCode) {
         try {
             int slotsAvailable = Math.max(0, room.getMaxPlayers() - room.getPlayers().size());
             int toMock = Math.min(4, slotsAvailable);
@@ -268,11 +268,8 @@ public class RoomServiceImpl implements RoomService {
 
                 }
             }
-            return true;
         } catch (Exception ignored) {
             // Ignore mocking errors - room creation should still succeed
-            return false;
         }
     }
 }
-

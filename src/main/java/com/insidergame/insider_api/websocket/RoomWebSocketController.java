@@ -1,20 +1,32 @@
 package com.insidergame.insider_api.websocket;
 
+import com.insidergame.insider_api.dto.GameSummaryDto;
 import com.insidergame.insider_api.dto.PlayerDto;
 import com.insidergame.insider_api.dto.RoomUpdateMessage;
+import com.insidergame.insider_api.enums.RoomStatus;
 import com.insidergame.insider_api.manager.RoomManager;
+import com.insidergame.insider_api.manager.GameManager;
+import com.insidergame.insider_api.model.Game;
 import com.insidergame.insider_api.model.Player;
 import com.insidergame.insider_api.model.Room;
+import com.insidergame.insider_api.service.GameService;
+import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.MessageHeaders;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
+import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Controller
@@ -23,10 +35,13 @@ public class RoomWebSocketController {
 
     private final RoomManager roomManager;
     private final SimpMessagingTemplate messagingTemplate;
+    private final GameService gameService;
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    public RoomWebSocketController(RoomManager roomManager, SimpMessagingTemplate messagingTemplate) {
+    public RoomWebSocketController(RoomManager roomManager, SimpMessagingTemplate messagingTemplate, GameService gameService, GameManager gameManager) {
         this.roomManager = roomManager;
         this.messagingTemplate = messagingTemplate;
+        this.gameService = gameService;
     }
 
     /**
@@ -73,7 +88,7 @@ public class RoomWebSocketController {
                 .findFirst()
                 .ifPresent(player -> {
                     player.setActive(true);
-                    player.setLastActiveAt(LocalDateTime.now());
+                    player.setLastActiveAt(java.time.LocalDateTime.now());
                 });
 
         // Broadcast a light ROOM_UPDATE so others can know active status
@@ -87,8 +102,9 @@ public class RoomWebSocketController {
      * playerName is optional; if missing we fall back to playerUuid as name
      */
     @MessageMapping("/room/{roomCode}/join")
-    public void joinRoom(@DestinationVariable String roomCode, @Payload JoinRequest request) {
-        log.info("WS join request: player {} (name={}) joining room {}", request.getPlayerUuid(), request.getPlayerName(), roomCode);
+    public void joinRoom(@DestinationVariable String roomCode, @Payload JoinRequest request, MessageHeaders headers) {
+        String sessionId = SimpMessageHeaderAccessor.getSessionId(headers);
+        log.info("WS join request: player {} (name={}) joining room {} sessionId={}", request.getPlayerUuid(), request.getPlayerName(), roomCode, sessionId);
 
         Room room = roomManager.getRoom(roomCode).orElse(null);
         if (room == null) {
@@ -110,7 +126,7 @@ public class RoomWebSocketController {
             return;
         }
 
-        if (!"WAITING".equals(room.getStatus())) {
+        if (room.getStatus() != RoomStatus.WAITING) {
             log.warn("Room {} is not accepting players (status={}) - cannot join via WS", roomCode, room.getStatus());
             broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
             return;
@@ -125,15 +141,16 @@ public class RoomWebSocketController {
         Player player = Player.builder()
                 .uuid(request.getPlayerUuid())
                 .playerName(playerName)
-                .joinedAt(LocalDateTime.now())
+                .joinedAt(java.time.LocalDateTime.now())
                 .isHost(false)
                 .isActive(true)
-                .lastActiveAt(LocalDateTime.now())
+                .lastActiveAt(java.time.LocalDateTime.now())
+                .sessionId(sessionId)
                 .build();
 
         boolean added = roomManager.addPlayerToRoom(roomCode, player);
         if (added) {
-            log.info("Player {} added to room {} via WS", request.getPlayerUuid(), roomCode);
+            log.info("Player {} added to room {} via WS (session={})", request.getPlayerUuid(), roomCode, sessionId);
             broadcastRoomUpdate(roomCode, "PLAYER_JOINED");
         } else {
             log.warn("Failed to add player {} to room {} via WS", request.getPlayerUuid(), roomCode);
@@ -189,7 +206,7 @@ public class RoomWebSocketController {
                 .ifPresent(player -> {
                     player.setActive(request.isActive());
                     if (request.isActive()) {
-                        player.setLastActiveAt(LocalDateTime.now());
+                        player.setLastActiveAt(java.time.LocalDateTime.now());
                     }
 //                    if(player.isReady()){
 //                        player.setReady(false);
@@ -201,37 +218,118 @@ public class RoomWebSocketController {
     }
 
     /**
+     * Start the game in the room
+     * Client sends: /app/room/{roomCode}/start
+     * Payload: { triggerByUuid }
+     */
+    @MessageMapping("/room/{roomCode}/start")
+    public void startGame(@DestinationVariable String roomCode, @Payload StartRequest request) {
+        log.info("WS start game requested by {} in room {}", request.getTriggerByUuid(), roomCode);
+
+        try {
+            var resp = gameService.startGame(roomCode, request.getTriggerByUuid());
+            if (!resp.isSuccess() || resp.getData() == null) {
+                log.warn("Failed to start game in room {}: {}", roomCode, resp.getMessage());
+                broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
+                return;
+            }
+
+            Game game = resp.getData();
+
+            // Broadcast general game started update (includes activeGame in RoomUpdateMessage)
+            broadcastRoomUpdate(roomCode, "GAME_STARTED");
+
+            // Send private info to MASTER and INSIDER only using their sessionId
+            Map<String, String> roles = game.getRoles();
+            for (Map.Entry<String, String> e : roles.entrySet()) {
+                String playerUuid = e.getKey();
+                String role = e.getValue();
+                // find player in room to get sessionId
+                Player player = roomManager.getRoom(roomCode).orElseThrow().getPlayers().stream()
+                        .filter(p -> p.getUuid().equals(playerUuid)).findFirst().orElse(null);
+                if (player == null) continue;
+
+                String sessionId = player.getSessionId();
+                if (sessionId == null) continue; // can't send private
+
+                String word = ("MASTER".equals(role) || "INSIDER".equals(role)) ? game.getWord() : null;
+
+                GamePrivateMessage pm = new GamePrivateMessage(playerUuid, role, word);
+
+                // Build headers targeted to sessionId
+                SimpMessageHeaderAccessor sha = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
+                sha.setSessionId(sessionId);
+                sha.setLeaveMutable(true);
+
+                messagingTemplate.convertAndSendToUser(sessionId, "/queue/game_private", pm, sha.getMessageHeaders());
+            }
+
+            // Schedule finish via controller scheduler
+            int duration = game.getDurationSeconds();
+            scheduler.schedule(() -> {
+                try {
+                    gameService.finishGame(roomCode);
+                    broadcastRoomUpdate(roomCode, "GAME_FINISHED");
+                } catch (Exception ex) {
+                    log.error("Error finishing game scheduled: {}", ex.getMessage(), ex);
+                }
+            }, duration, TimeUnit.SECONDS);
+
+        } catch (Exception ex) {
+            log.error("Error handling start game WS: {}", ex.getMessage(), ex);
+        }
+    }
+
+    /**
      * Broadcast room update to all subscribers
      */
     public void broadcastRoomUpdate(String roomCode, String updateType) {
         Room room = roomManager.getRoom(roomCode).orElse(null);
-        if (room == null) {
-            return;
-        }
+        if (room == null) return;
 
         RoomUpdateMessage message = buildRoomUpdateMessage(room, updateType);
-
-        // Send to /topic/room/{roomCode}
         messagingTemplate.convertAndSend("/topic/room/" + roomCode, message);
-
         log.info("Broadcasted {} to room {}", updateType, roomCode);
     }
 
     private RoomUpdateMessage buildRoomUpdateMessage(Room room, String type) {
-        List<PlayerDto> playerDtos = room.getPlayers().stream()
-                .map(this::convertToPlayerDto)
-                .collect(Collectors.toList());
+        List<PlayerDto> playerDtos = room.getPlayers().stream().map(this::convertToPlayerDto).collect(Collectors.toList());
 
-        return RoomUpdateMessage.builder()
+        RoomUpdateMessage.RoomUpdateMessageBuilder builder = RoomUpdateMessage.builder()
                 .type(type)
                 .roomCode(room.getRoomCode())
                 .roomName(room.getRoomName())
                 .maxPlayers(room.getMaxPlayers())
                 .currentPlayers(room.getCurrentPlayers())
-                .status(room.getStatus())
+                .status(null)
                 .players(playerDtos)
-                .message(getMessageForType(type))
-                .build();
+                .message(getMessageForType(type));
+
+        // map room.status (RoomStatus) directly
+        try {
+            builder.status(room.getStatus());
+        } catch (Exception ignored) {
+            // leave status null if mapping fails
+        }
+
+        // include active game summary if available
+        try {
+            var gr = gameService.getActiveGame(room.getRoomCode());
+            if (gr != null && gr.getData() != null) {
+                Game g = gr.getData();
+                GameSummaryDto summary = GameSummaryDto.builder()
+                        .id(g.getId() == null ? null : g.getId().toString())
+                        .word(null) // Do not broadcast word publicly
+                        .startedAt(g.getStartedAt() == null ? null : g.getStartedAt().toString())
+                        .endsAt(g.getEndsAt() == null ? null : g.getEndsAt().toString())
+                        .durationSeconds(g.getDurationSeconds())
+                        .finished(g.isFinished())
+                        .build();
+                builder.activeGame(summary);
+            }
+        } catch (Exception ignored) {}
+
+        return builder.build();
     }
 
     private PlayerDto convertToPlayerDto(Player player) {
@@ -286,13 +384,23 @@ public class RoomWebSocketController {
     @lombok.Data
     public static class StatusRequest {
         private String playerUuid;
+        // Provide convenience getter used above
         // Accept JSON property 'active' from client
+        @Getter
         private boolean active;
 
-        // Provide convenience getter used above
-        public boolean isActive() {
-            return active;
-        }
+    }
+
+    @lombok.Data
+    public static class StartRequest {
+        private String triggerByUuid;
+    }
+
+    @lombok.AllArgsConstructor @lombok.Data
+    public static class GamePrivateMessage {
+        private String playerUuid;
+        private String role;
+        private String word;
     }
 
 }

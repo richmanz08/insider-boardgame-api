@@ -12,7 +12,7 @@ import java.util.List;
 @Builder
 public class RoomUpdateMessage {
 
-    private String type; // "PLAYER_JOINED", "PLAYER_LEFT", "PLAYER_READY", "ROOM_UPDATE"
+    private String type; // "PLAYER_JOINED", "PLAYER_LEFT", "PLAYER_READY", "ROOM_UPDATE", "GAME_STARTED", etc.
     private String roomCode;
     private String roomName;
     private Integer maxPlayers;
@@ -20,5 +20,5 @@ public class RoomUpdateMessage {
     private RoomStatus status;
     private List<PlayerDto> players;
     private String message;
+    private GameSummaryDto activeGame; // New: optional active game summary for countdown sync
 }
-
