@@ -170,6 +170,33 @@ public class RoomWebSocketController {
         }
     }
 
+    /**
+     * Player notifies leaving via WebSocket
+     * Client sends: /app/room/{roomCode}/leave
+     * Payload: { playerUuid }
+     */
+    @MessageMapping("/room/{roomCode}/leave")
+    public void leaveRoom(@DestinationVariable String roomCode, @Payload LeaveRequest request) {
+        log.info("WS leave request: player {} leaving room {}", request.getPlayerUuid(), roomCode);
+
+        Room room = roomManager.getRoom(roomCode).orElse(null);
+        if (room == null) {
+            log.warn("Room {} not found (WS leave)", roomCode);
+            return;
+        }
+
+        boolean roomDeleted = roomManager.removePlayerFromRoom(roomCode, request.getPlayerUuid());
+
+        if (roomDeleted) {
+            log.info("Player {} left room {} and room deleted (empty)", request.getPlayerUuid(), roomCode);
+            // Broadcast a ROOM_UPDATE so subscribers know the room state changed (it may be removed)
+            broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
+        } else {
+            log.info("Player {} left room {}", request.getPlayerUuid(), roomCode);
+            broadcastRoomUpdate(roomCode, "PLAYER_LEFT");
+        }
+    }
+
     // Inner class for request payload
     @lombok.Data
     public static class ReadyRequest {
@@ -182,4 +209,11 @@ public class RoomWebSocketController {
         private String playerUuid;
         private String playerName;
     }
+
+    // New inner class for leave request
+    @lombok.Data
+    public static class LeaveRequest {
+        private String playerUuid;
+    }
+
 }
