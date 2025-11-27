@@ -324,6 +324,51 @@ public class RoomWebSocketController {
     }
 
     /**
+     * Player opens their role card
+     * Client sends: /app/room/{roomCode}/open_card
+     * Payload: { playerUuid }
+     */
+    @MessageMapping("/room/{roomCode}/open_card")
+    public void openCard(@DestinationVariable String roomCode, @Payload CardOpenRequest request) {
+        log.info("Card open request from player={} in room={}", request.getPlayerUuid(), roomCode);
+
+        try {
+            var resp = gameService.markCardOpened(roomCode, request.getPlayerUuid());
+            if (resp == null || !resp.isSuccess()) {
+                log.warn("markCardOpened failed for room={} player={}", roomCode, request.getPlayerUuid());
+            }
+        } catch (Exception ex) {
+            log.error("Error marking card opened: {}", ex.getMessage(), ex);
+        }
+
+        // Broadcast CARD_OPENED update so clients see who opened
+        broadcastRoomUpdate(roomCode, "CARD_OPENED");
+
+        // If all opened -> start countdown via gameService.startCountdown
+        try {
+            var startResp = gameService.startCountdown(roomCode);
+            if (startResp != null && startResp.isSuccess() && startResp.getData() != null) {
+                Game g = startResp.getData();
+                // Broadcast game started so clients receive activeGame with endsAt
+                broadcastRoomUpdate(roomCode, "GAME_STARTED");
+
+                // Schedule finish
+                long millis = java.time.Duration.between(java.time.LocalDateTime.now(), g.getEndsAt()).toMillis();
+                if (millis > 0) {
+                    scheduler.schedule(() -> {
+                        try {
+                            gameService.finishGame(roomCode);
+                            broadcastRoomUpdate(roomCode, "GAME_FINISHED");
+                        } catch (Exception ex) {
+                            log.error("Error finishing scheduled game: {}", ex.getMessage(), ex);
+                        }
+                    }, millis, java.util.concurrent.TimeUnit.MILLISECONDS);
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
+    /**
      * Broadcast room update to all subscribers
      */
     public void broadcastRoomUpdate(String roomCode, String updateType) {
@@ -444,6 +489,11 @@ public class RoomWebSocketController {
         private String playerUuid;
         private RoleType role;
         private String word;
+    }
+
+    @lombok.Data
+    public static class CardOpenRequest {
+        private String playerUuid;
     }
 
 }

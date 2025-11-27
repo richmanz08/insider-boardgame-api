@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Service
+@Service("gameServiceApi")
 public class GameServiceImpl implements GameService {
 
     private final GameManager gameManager;
@@ -97,5 +97,33 @@ public class GameServiceImpl implements GameService {
     @Override
     public ApiResponse<List<Game>> getGamesForRoom(String roomCode) {
         return new ApiResponse<>(true, "", gameManager.getGamesForRoom(roomCode), null);
+    }
+
+    @Override
+    public ApiResponse<Boolean> markCardOpened(String roomCode, String playerUuid) {
+        try {
+            boolean changed = gameManager.markCardOpened(roomCode, playerUuid);
+            if (changed) {
+                return new ApiResponse<>(true, "Card opened", true, null);
+            } else {
+                return new ApiResponse<>(false, "Not changed or no active game", false, null);
+            }
+        } catch (Exception ex) {
+            return new ApiResponse<>(false, ex.getMessage(), false, null);
+        }
+    }
+
+    @Override
+    public ApiResponse<Game> startCountdown(String roomCode) {
+        try {
+            var opt = gameManager.startCountdown(roomCode);
+            if (opt.isPresent()) {
+                return new ApiResponse<>(true, "Countdown started", opt.get(), null);
+            } else {
+                return new ApiResponse<>(false, "No active game to start countdown", null, null);
+            }
+        } catch (Exception ex) {
+            return new ApiResponse<>(false, ex.getMessage(), null, null);
+        }
     }
 }

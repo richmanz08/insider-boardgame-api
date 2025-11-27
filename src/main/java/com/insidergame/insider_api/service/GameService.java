@@ -10,5 +10,9 @@ public interface GameService {
     ApiResponse<Void> finishGame(String roomCode);
     ApiResponse<Game> getActiveGame(String roomCode);
     ApiResponse<List<Game>> getGamesForRoom(String roomCode);
-}
+    // Mark player's card as opened via WS flow
+    ApiResponse<Boolean> markCardOpened(String roomCode, String playerUuid);
 
+    // Start countdown for active game (set startedAt/endsAt) and return the started Game
+    ApiResponse<Game> startCountdown(String roomCode);
+}

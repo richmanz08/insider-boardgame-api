@@ -22,5 +22,6 @@ public class Game {
     private LocalDateTime endsAt;
     private int durationSeconds;
     private boolean finished;
+    // Track whether each player has opened their card: playerUuid -> opened
+    private Map<String, Boolean> cardOpened;
 }
-

@@ -24,15 +24,48 @@ public class GameManager {
                 .roomCode(roomCode)
                 .word(word)
                 .roles(new HashMap<>(roles))
-                .startedAt(LocalDateTime.now())
+                .startedAt(null)
                 .durationSeconds(durationSeconds)
-                .endsAt(LocalDateTime.now().plusSeconds(durationSeconds))
+                .endsAt(null)
                 .finished(false)
+                .cardOpened(new HashMap<>())
                 .build();
+
+        // initialize cardOpened map for all players
+        for (String uuid : roles.keySet()) {
+            game.getCardOpened().put(uuid, false);
+        }
 
         gamesByRoom.computeIfAbsent(roomCode, k -> new ArrayList<>()).add(game);
         activeGameByRoom.put(roomCode, game);
         return game;
+    }
+
+    // Start the countdown for an active game (set startedAt and endsAt)
+    public Optional<Game> startCountdown(String roomCode) {
+        Game g = activeGameByRoom.get(roomCode);
+        if (g == null) return Optional.empty();
+        LocalDateTime now = LocalDateTime.now();
+        g.setStartedAt(now);
+        g.setEndsAt(now.plusSeconds(g.getDurationSeconds()));
+        return Optional.of(g);
+    }
+
+    // mark a player's card as opened, return true if changed
+    public boolean markCardOpened(String roomCode, String playerUuid) {
+        Game g = activeGameByRoom.get(roomCode);
+        if (g == null) return false;
+        Map<String, Boolean> map = g.getCardOpened();
+        if (map == null || !map.containsKey(playerUuid)) return false;
+        if (Boolean.TRUE.equals(map.get(playerUuid))) return false;
+        map.put(playerUuid, true);
+        return true;
+    }
+
+    public boolean allCardsOpened(String roomCode) {
+        Game g = activeGameByRoom.get(roomCode);
+        if (g == null) return false;
+        return g.getCardOpened().values().stream().allMatch(Boolean::booleanValue);
     }
 
     public void finishGame(String roomCode) {
@@ -46,4 +79,3 @@ public class GameManager {
         return gamesByRoom.getOrDefault(roomCode, Collections.emptyList());
     }
 }
-
