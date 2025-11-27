@@ -14,5 +14,6 @@ public class PlayerDto {
     private boolean isHost;
     private boolean isReady;
     private String joinedAt;
+    private boolean isActive;
+    private String lastActiveAt;
 }
-

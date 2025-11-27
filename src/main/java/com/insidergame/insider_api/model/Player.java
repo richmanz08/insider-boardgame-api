@@ -23,6 +23,13 @@ public class Player {
     @Builder.Default
     private boolean isReady = false; // Ready status for game start
 
+    // New: whether the player is currently active (not intentionally left)
+    @Builder.Default
+    private boolean isActive = true;
+
+    // New: last time the player was seen active (used to expire inactive players)
+    private LocalDateTime lastActiveAt;
+
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -36,4 +43,3 @@ public class Player {
         return Objects.hash(uuid);
     }
 }
-

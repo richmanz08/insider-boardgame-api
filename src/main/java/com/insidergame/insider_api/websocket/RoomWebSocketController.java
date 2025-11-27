@@ -57,58 +57,26 @@ public class RoomWebSocketController {
     }
 
     /**
-     * Broadcast room update to all subscribers
+     * Presence ping from client to mark active
+     * Client sends: /app/room/{roomCode}/presence
+     * Payload: { playerUuid }
      */
-    public void broadcastRoomUpdate(String roomCode, String updateType) {
+    @MessageMapping("/room/{roomCode}/presence")
+    public void presencePing(@DestinationVariable String roomCode, @Payload PresenceRequest request) {
+        log.debug("Presence ping from {} in room {}", request.getPlayerUuid(), roomCode);
         Room room = roomManager.getRoom(roomCode).orElse(null);
-        if (room == null) {
-            return;
-        }
+        if (room == null) return;
 
-        RoomUpdateMessage message = buildRoomUpdateMessage(room, updateType);
+        room.getPlayers().stream()
+                .filter(p -> p.getUuid().equals(request.getPlayerUuid()))
+                .findFirst()
+                .ifPresent(player -> {
+                    player.setActive(true);
+                    player.setLastActiveAt(LocalDateTime.now());
+                });
 
-        // Send to /topic/room/{roomCode}
-        messagingTemplate.convertAndSend("/topic/room/" + roomCode, message);
-
-        log.info("Broadcasted {} to room {}", updateType, roomCode);
-    }
-
-    private RoomUpdateMessage buildRoomUpdateMessage(Room room, String type) {
-        List<PlayerDto> playerDtos = room.getPlayers().stream()
-                .map(this::convertToPlayerDto)
-                .collect(Collectors.toList());
-
-        return RoomUpdateMessage.builder()
-                .type(type)
-                .roomCode(room.getRoomCode())
-                .roomName(room.getRoomName())
-                .maxPlayers(room.getMaxPlayers())
-                .currentPlayers(room.getCurrentPlayers())
-                .status(room.getStatus())
-                .players(playerDtos)
-                .message(getMessageForType(type))
-                .build();
-    }
-
-    private PlayerDto convertToPlayerDto(Player player) {
-        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-        return PlayerDto.builder()
-                .uuid(player.getUuid())
-                .playerName(player.getPlayerName())
-                .isHost(player.isHost())
-                .isReady(player.isReady())
-                .joinedAt(player.getJoinedAt().format(formatter))
-                .build();
-    }
-
-    private String getMessageForType(String type) {
-        return switch (type) {
-            case "PLAYER_JOINED" -> "A player joined the room";
-            case "PLAYER_LEFT" -> "A player left the room";
-            case "PLAYER_READY" -> "A player updated ready status";
-            case "ROOM_UPDATE" -> "Room updated";
-            default -> "Room state changed";
-        };
+        // Broadcast a light ROOM_UPDATE so others can know active status
+        broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
     }
 
     /**
@@ -158,6 +126,8 @@ public class RoomWebSocketController {
                 .playerName(playerName)
                 .joinedAt(LocalDateTime.now())
                 .isHost(false)
+                .isActive(true)
+                .lastActiveAt(LocalDateTime.now())
                 .build();
 
         boolean added = roomManager.addPlayerToRoom(roomCode, player);
@@ -197,6 +167,63 @@ public class RoomWebSocketController {
         }
     }
 
+    /**
+     * Broadcast room update to all subscribers
+     */
+    public void broadcastRoomUpdate(String roomCode, String updateType) {
+        Room room = roomManager.getRoom(roomCode).orElse(null);
+        if (room == null) {
+            return;
+        }
+
+        RoomUpdateMessage message = buildRoomUpdateMessage(room, updateType);
+
+        // Send to /topic/room/{roomCode}
+        messagingTemplate.convertAndSend("/topic/room/" + roomCode, message);
+
+        log.info("Broadcasted {} to room {}", updateType, roomCode);
+    }
+
+    private RoomUpdateMessage buildRoomUpdateMessage(Room room, String type) {
+        List<PlayerDto> playerDtos = room.getPlayers().stream()
+                .map(this::convertToPlayerDto)
+                .collect(Collectors.toList());
+
+        return RoomUpdateMessage.builder()
+                .type(type)
+                .roomCode(room.getRoomCode())
+                .roomName(room.getRoomName())
+                .maxPlayers(room.getMaxPlayers())
+                .currentPlayers(room.getCurrentPlayers())
+                .status(room.getStatus())
+                .players(playerDtos)
+                .message(getMessageForType(type))
+                .build();
+    }
+
+    private PlayerDto convertToPlayerDto(Player player) {
+        DateTimeFormatter formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+        return PlayerDto.builder()
+                .uuid(player.getUuid())
+                .playerName(player.getPlayerName())
+                .isHost(player.isHost())
+                .isReady(player.isReady())
+                .joinedAt(player.getJoinedAt() == null ? null : player.getJoinedAt().format(formatter))
+                .isActive(player.isActive())
+                .lastActiveAt(player.getLastActiveAt() == null ? null : player.getLastActiveAt().format(formatter))
+                .build();
+    }
+
+    private String getMessageForType(String type) {
+        return switch (type) {
+            case "PLAYER_JOINED" -> "A player joined the room";
+            case "PLAYER_LEFT" -> "A player left the room";
+            case "PLAYER_READY" -> "A player updated ready status";
+            case "ROOM_UPDATE" -> "Room updated";
+            default -> "Room state changed";
+        };
+    }
+
     // Inner class for request payload
     @lombok.Data
     public static class ReadyRequest {
@@ -216,4 +243,9 @@ public class RoomWebSocketController {
         private String playerUuid;
     }
 
+    // New inner class for presence request
+    @lombok.Data
+    public static class PresenceRequest {
+        private String playerUuid;
+    }
 }
