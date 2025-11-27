@@ -49,6 +49,7 @@ public class RoomWebSocketController {
                 .findFirst()
                 .ifPresent(player -> {
                     player.setReady(!player.isReady());
+                    player.setActive(true);
                     log.info("Player {} is now ready: {}", player.getPlayerName(), player.isReady());
                 });
 
@@ -189,6 +190,9 @@ public class RoomWebSocketController {
                     player.setActive(request.isActive());
                     if (request.isActive()) {
                         player.setLastActiveAt(LocalDateTime.now());
+                    }
+                    if(player.isReady()){
+                        player.setReady(false);
                     }
                 });
 
