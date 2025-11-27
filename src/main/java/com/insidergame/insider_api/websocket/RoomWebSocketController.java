@@ -168,6 +168,35 @@ public class RoomWebSocketController {
     }
 
     /**
+     * Client sends page visibility / status updates
+     * Client sends: /app/room/{roomCode}/status
+     * Payload: { playerUuid, active }
+     */
+    @MessageMapping("/room/{roomCode}/status")
+    public void statusUpdate(@DestinationVariable String roomCode, @Payload StatusRequest request) {
+        log.info("WS status update: player {} active={} in room {}", request.getPlayerUuid(), request.isActive(), roomCode);
+
+        Room room = roomManager.getRoom(roomCode).orElse(null);
+        if (room == null) {
+            log.warn("Room {} not found (WS status)", roomCode);
+            return;
+        }
+
+        room.getPlayers().stream()
+                .filter(p -> p.getUuid().equals(request.getPlayerUuid()))
+                .findFirst()
+                .ifPresent(player -> {
+                    player.setActive(request.isActive());
+                    if (request.isActive()) {
+                        player.setLastActiveAt(LocalDateTime.now());
+                    }
+                });
+
+        // Broadcast update so other clients see active/inactive change
+        broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
+    }
+
+    /**
      * Broadcast room update to all subscribers
      */
     public void broadcastRoomUpdate(String roomCode, String updateType) {
@@ -248,4 +277,18 @@ public class RoomWebSocketController {
     public static class PresenceRequest {
         private String playerUuid;
     }
+
+    // New inner class for status request
+    @lombok.Data
+    public static class StatusRequest {
+        private String playerUuid;
+        // Accept JSON property 'active' from client
+        private boolean active;
+
+        // Provide convenience getter used above
+        public boolean isActive() {
+            return active;
+        }
+    }
+
 }
