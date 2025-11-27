@@ -112,9 +112,23 @@ public class RoomWebSocketController {
             return;
         }
 
-        // If player already in room, just broadcast current snapshot
+        // If player already in room, update sessionId/active and send snapshot
         if (roomManager.isPlayerInRoom(roomCode, request.getPlayerUuid())) {
-            log.info("Player {} already in room {} (WS join) - sending snapshot", request.getPlayerUuid(), roomCode);
+            // update existing player's sessionId and activity so they can receive private messages
+            room.getPlayers().stream()
+                    .filter(p -> p.getUuid().equals(request.getPlayerUuid()))
+                    .findFirst()
+                    .ifPresent(existing -> {
+                        existing.setSessionId(sessionId);
+                        existing.setActive(true);
+                        existing.setLastActiveAt(java.time.LocalDateTime.now());
+                        // optionally update name if provided
+                        if (request.getPlayerName() != null && !request.getPlayerName().isEmpty()) {
+                            existing.setPlayerName(request.getPlayerName());
+                        }
+                        log.info("Updated existing player {} with session {}", existing.getUuid(), sessionId);
+                    });
+
             broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
             return;
         }
@@ -241,6 +255,20 @@ public class RoomWebSocketController {
 
             // Send private info to MASTER and INSIDER only using their sessionId
             Map<String, String> roles = game.getRoles();
+
+            // Build role-only list for broadcast (no words)
+            List<GamePrivateMessage> roleOnlyList = roles.entrySet().stream()
+                    .map(e -> {
+                        String r = e.getValue();
+                        String w = ("MASTER".equals(r) || "INSIDER".equals(r)) ? game.getWord() : ""; // use empty string for non-master/insider
+                        return new GamePrivateMessage(e.getKey(), r, w);
+                    })
+                    .collect(Collectors.toList());
+
+            // Broadcast role-only info to topic (safe: no words included for master/insider only, others get empty string)
+            messagingTemplate.convertAndSend("/topic/room/" + roomCode + "/game_private", roleOnlyList);
+            log.info("Broadcasted role-only game_private to /topic/room/{}", roomCode);
+
             for (Map.Entry<String, String> e : roles.entrySet()) {
                 String playerUuid = e.getKey();
                 String role = e.getValue();
@@ -250,9 +278,12 @@ public class RoomWebSocketController {
                 if (player == null) continue;
 
                 String sessionId = player.getSessionId();
-                if (sessionId == null) continue; // can't send private
+                if (sessionId == null) {
+                    log.warn("No sessionId for player {} - cannot send private word", playerUuid);
+                    continue; // can't send private
+                }
 
-                String word = ("MASTER".equals(role) || "INSIDER".equals(role)) ? game.getWord() : null;
+                String word = ("MASTER".equals(role) || "INSIDER".equals(role)) ? game.getWord() : ""; // empty string instead of null
 
                 GamePrivateMessage pm = new GamePrivateMessage(playerUuid, role, word);
 
@@ -261,6 +292,7 @@ public class RoomWebSocketController {
                 sha.setSessionId(sessionId);
                 sha.setLeaveMutable(true);
 
+                log.info("Sending private game message to session={} playerUuid={} role={}", sessionId, playerUuid, role);
                 messagingTemplate.convertAndSendToUser(sessionId, "/queue/game_private", pm, sha.getMessageHeaders());
             }
 
