@@ -1,4 +1,4 @@
-package com.insidergame.insider_api.service;
+package com.insidergame.insider_api.api.game;
 
 import com.insidergame.insider_api.api.category.CategoryServiceImpl;
 import com.insidergame.insider_api.common.ApiResponse;
@@ -8,6 +8,7 @@ import com.insidergame.insider_api.manager.RoomManager;
 import com.insidergame.insider_api.model.Game;
 import com.insidergame.insider_api.model.Player;
 import com.insidergame.insider_api.model.Room;
+import com.insidergame.insider_api.service.GameService;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
