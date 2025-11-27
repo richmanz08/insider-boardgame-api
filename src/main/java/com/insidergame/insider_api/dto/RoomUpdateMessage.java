@@ -1,5 +1,6 @@
 package com.insidergame.insider_api.dto;
 
+import com.insidergame.insider_api.enums.RoomStatus;
 import lombok.*;
 
 import java.util.List;
@@ -16,7 +17,7 @@ public class RoomUpdateMessage {
     private String roomName;
     private Integer maxPlayers;
     private Integer currentPlayers;
-    private String status;
+    private RoomStatus status;
     private List<PlayerDto> players;
     private String message;
 }

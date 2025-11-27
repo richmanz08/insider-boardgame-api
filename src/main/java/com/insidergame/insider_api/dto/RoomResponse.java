@@ -1,5 +1,6 @@
 package com.insidergame.insider_api.dto;
 
+import com.insidergame.insider_api.enums.RoomStatus;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.NoArgsConstructor;
@@ -20,7 +21,7 @@ public class RoomResponse {
     private Integer maxPlayers;
     private Integer currentPlayers;
     private Boolean hasPassword;
-    private String status;
+    private RoomStatus status;
     private String hostUuid;
     private String hostName;
     private LocalDateTime createdAt;

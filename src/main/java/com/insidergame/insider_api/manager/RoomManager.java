@@ -1,5 +1,6 @@
 package com.insidergame.insider_api.manager;
 
+import com.insidergame.insider_api.enums.RoomStatus;
 import com.insidergame.insider_api.model.Player;
 import com.insidergame.insider_api.model.Room;
 import lombok.extern.slf4j.Slf4j;
@@ -28,7 +29,7 @@ public class RoomManager {
                 .roomName(roomName)
                 .maxPlayers(maxPlayers)
                 .password(password)
-                .status("WAITING")
+                .status(RoomStatus.WAITING)
                 .hostUuid(hostUuid)
                 .hostName(hostName)
                 .createdAt(LocalDateTime.now())
@@ -134,7 +135,7 @@ public class RoomManager {
     /**
      * Update room status
      */
-    public void updateRoomStatus(String roomCode, String status) {
+    public void updateRoomStatus(String roomCode, RoomStatus status) {
         Room room = rooms.get(roomCode);
         if (room != null) {
             room.setStatus(status);

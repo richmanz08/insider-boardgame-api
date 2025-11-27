@@ -1,5 +1,6 @@
 package com.insidergame.insider_api.model;
 
+import com.insidergame.insider_api.enums.RoomStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -19,7 +20,7 @@ public class Room {
     private String roomName;
     private Integer maxPlayers;
     private String password;
-    private String status; // WAITING, PLAYING, FINISHED
+    private RoomStatus status; // Changed to RoomStatus enum
     private String hostUuid;
     private String hostName;
     private LocalDateTime createdAt;
