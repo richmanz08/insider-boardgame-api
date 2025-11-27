@@ -2,6 +2,7 @@ package com.insidergame.insider_api.manager;
 
 import com.insidergame.insider_api.model.Player;
 import com.insidergame.insider_api.model.Room;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -10,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 @Component
+@Slf4j
 public class RoomManager {
 
     // In-memory storage for rooms
@@ -42,6 +44,7 @@ public class RoomManager {
                 .build();
 
         room.addPlayer(host);
+        log.info("Created room {} with host {}", roomCode, hostUuid);
 
         rooms.put(roomCode, room);
         return room;
@@ -82,10 +85,12 @@ public class RoomManager {
                     .anyMatch(p -> p.getUuid().equals(player.getUuid()));
 
             if (playerExists) {
+                log.info("Attempted to add existing player {} to room {} - ignoring", player.getUuid(), roomCode);
                 return false; // Player already in room, don't add again
             }
 
             room.addPlayer(player);
+            log.info("Player {} added to room {}", player.getUuid(), roomCode);
             return true;
         }
         return false;
@@ -172,4 +177,3 @@ public class RoomManager {
                 .anyMatch(player -> player.getUuid().equals(playerUuid));
     }
 }
-

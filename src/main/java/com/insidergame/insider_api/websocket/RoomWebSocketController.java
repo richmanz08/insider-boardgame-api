@@ -12,6 +12,7 @@ import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -110,10 +111,75 @@ public class RoomWebSocketController {
         };
     }
 
+    /**
+     * Player requests join via WebSocket
+     * Client sends: /app/room/{roomCode}/join
+     * Payload: { playerUuid, playerName }
+     * playerName is optional; if missing we fall back to playerUuid as name
+     */
+    @MessageMapping("/room/{roomCode}/join")
+    public void joinRoom(@DestinationVariable String roomCode, @Payload JoinRequest request) {
+        log.info("WS join request: player {} (name={}) joining room {}", request.getPlayerUuid(), request.getPlayerName(), roomCode);
+
+        Room room = roomManager.getRoom(roomCode).orElse(null);
+        if (room == null) {
+            log.warn("Room {} not found (WS join)", roomCode);
+            return;
+        }
+
+        // If player already in room, just broadcast current snapshot
+        if (roomManager.isPlayerInRoom(roomCode, request.getPlayerUuid())) {
+            log.info("Player {} already in room {} (WS join) - sending snapshot", request.getPlayerUuid(), roomCode);
+            broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
+            return;
+        }
+
+        // If room not accepting new players or full, just broadcast snapshot (client can handle UI)
+        if (room.isFull()) {
+            log.warn("Room {} is full - cannot join via WS: {}", roomCode, request.getPlayerUuid());
+            broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
+            return;
+        }
+
+        if (!"WAITING".equals(room.getStatus())) {
+            log.warn("Room {} is not accepting players (status={}) - cannot join via WS", roomCode, room.getStatus());
+            broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
+            return;
+        }
+
+        String playerName = request.getPlayerName();
+        if (playerName == null || playerName.isEmpty()) {
+            playerName = request.getPlayerUuid();
+        }
+
+        // Build player and add to room via RoomManager (which already guards duplicates)
+        Player player = Player.builder()
+                .uuid(request.getPlayerUuid())
+                .playerName(playerName)
+                .joinedAt(LocalDateTime.now())
+                .isHost(false)
+                .build();
+
+        boolean added = roomManager.addPlayerToRoom(roomCode, player);
+        if (added) {
+            log.info("Player {} added to room {} via WS", request.getPlayerUuid(), roomCode);
+            broadcastRoomUpdate(roomCode, "PLAYER_JOINED");
+        } else {
+            log.warn("Failed to add player {} to room {} via WS", request.getPlayerUuid(), roomCode);
+            broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
+        }
+    }
+
     // Inner class for request payload
     @lombok.Data
     public static class ReadyRequest {
         private String playerUuid;
     }
-}
 
+    // New inner class for join request
+    @lombok.Data
+    public static class JoinRequest {
+        private String playerUuid;
+        private String playerName;
+    }
+}

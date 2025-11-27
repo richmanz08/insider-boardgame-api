@@ -55,6 +55,13 @@ public class RoomServiceImpl implements RoomService {
                     request.getHostName()
             );
 
+            // Broadcast initial room state so subscribers (if any) receive the room snapshot
+            try {
+                webSocketController.broadcastRoomUpdate(room.getRoomCode(), "ROOM_UPDATE");
+            } catch (Exception ignored) {
+                // If no subscribers or messaging not ready, ignore - room is still created
+            }
+
             // Build response
             RoomResponse response = buildRoomResponse(room);
 
@@ -79,6 +86,14 @@ public class RoomServiceImpl implements RoomService {
             if (roomManager.isPlayerInRoom(request.getRoomCode(), request.getPlayerUuid())) {
                 // Player already in room, just return current room state
                 RoomResponse response = buildRoomResponse(room);
+
+                // Ensure subscribers receive current state in case client relies on WS snapshot
+                try {
+                    webSocketController.broadcastRoomUpdate(request.getRoomCode(), "ROOM_UPDATE");
+                } catch (Exception ignored) {
+                    // ignore
+                }
+
                 return new ApiResponse<>(true, "Player already in room", response, HttpStatus.OK);
             }
 
