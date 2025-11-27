@@ -3,9 +3,9 @@ package com.insidergame.insider_api.websocket;
 import com.insidergame.insider_api.dto.GameSummaryDto;
 import com.insidergame.insider_api.dto.PlayerDto;
 import com.insidergame.insider_api.dto.RoomUpdateMessage;
+import com.insidergame.insider_api.enums.RoleType;
 import com.insidergame.insider_api.enums.RoomStatus;
 import com.insidergame.insider_api.manager.RoomManager;
-import com.insidergame.insider_api.manager.GameManager;
 import com.insidergame.insider_api.model.Game;
 import com.insidergame.insider_api.model.Player;
 import com.insidergame.insider_api.model.Room;
@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 @Controller
 @Slf4j
+@SuppressWarnings("unused")
 public class RoomWebSocketController {
 
     private final RoomManager roomManager;
@@ -38,7 +39,7 @@ public class RoomWebSocketController {
     private final GameService gameService;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
 
-    public RoomWebSocketController(RoomManager roomManager, SimpMessagingTemplate messagingTemplate, GameService gameService, GameManager gameManager) {
+    public RoomWebSocketController(RoomManager roomManager, SimpMessagingTemplate messagingTemplate, GameService gameService) {
         this.roomManager = roomManager;
         this.messagingTemplate = messagingTemplate;
         this.gameService = gameService;
@@ -259,9 +260,14 @@ public class RoomWebSocketController {
             // Build role-only list for broadcast (no words)
             List<GamePrivateMessage> roleOnlyList = roles.entrySet().stream()
                     .map(e -> {
-                        String r = e.getValue();
-                        String w = ("MASTER".equals(r) || "INSIDER".equals(r)) ? game.getWord() : ""; // use empty string for non-master/insider
-                        return new GamePrivateMessage(e.getKey(), r, w);
+                        RoleType rt;
+                        try {
+                            rt = RoleType.valueOf(e.getValue());
+                        } catch (Exception ex) {
+                            rt = RoleType.CITIZEN; // fallback
+                        }
+                        String w = (rt == RoleType.MASTER || rt == RoleType.INSIDER) ? game.getWord() : "";
+                        return new GamePrivateMessage(e.getKey(), rt, w);
                     })
                     .collect(Collectors.toList());
 
@@ -271,30 +277,35 @@ public class RoomWebSocketController {
 
             for (Map.Entry<String, String> e : roles.entrySet()) {
                 String playerUuid = e.getKey();
-                String role = e.getValue();
-                // find player in room to get sessionId
-                Player player = roomManager.getRoom(roomCode).orElseThrow().getPlayers().stream()
-                        .filter(p -> p.getUuid().equals(playerUuid)).findFirst().orElse(null);
-                if (player == null) continue;
-
-                String sessionId = player.getSessionId();
-                if (sessionId == null) {
-                    log.warn("No sessionId for player {} - cannot send private word", playerUuid);
-                    continue; // can't send private
+                RoleType role;
+                try {
+                    role = RoleType.valueOf(e.getValue());
+                } catch (Exception ex) {
+                    role = RoleType.CITIZEN;
                 }
+                 // find player in room to get sessionId
+                 Player player = roomManager.getRoom(roomCode).orElseThrow().getPlayers().stream()
+                         .filter(p -> p.getUuid().equals(playerUuid)).findFirst().orElse(null);
+                 if (player == null) continue;
 
-                String word = ("MASTER".equals(role) || "INSIDER".equals(role)) ? game.getWord() : ""; // empty string instead of null
+                 String sessionId = player.getSessionId();
+                 if (sessionId == null) {
+                     log.warn("No sessionId for player {} - cannot send private word", playerUuid);
+                     continue; // can't send private
+                 }
+
+                String word = (role == RoleType.MASTER || role == RoleType.INSIDER) ? game.getWord() : ""; // empty string instead of null
 
                 GamePrivateMessage pm = new GamePrivateMessage(playerUuid, role, word);
 
-                // Build headers targeted to sessionId
-                SimpMessageHeaderAccessor sha = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
-                sha.setSessionId(sessionId);
-                sha.setLeaveMutable(true);
+                 // Build headers targeted to sessionId
+                 SimpMessageHeaderAccessor sha = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
+                 sha.setSessionId(sessionId);
+                 sha.setLeaveMutable(true);
 
-                log.info("Sending private game message to session={} playerUuid={} role={}", sessionId, playerUuid, role);
-                messagingTemplate.convertAndSendToUser(sessionId, "/queue/game_private", pm, sha.getMessageHeaders());
-            }
+                 log.info("Sending private game message to session={} playerUuid={} role={}", sessionId, playerUuid, role);
+                 messagingTemplate.convertAndSendToUser(sessionId, "/queue/game_private", pm, sha.getMessageHeaders());
+             }
 
             // Schedule finish via controller scheduler
             int duration = game.getDurationSeconds();
@@ -431,7 +442,7 @@ public class RoomWebSocketController {
     @lombok.AllArgsConstructor @lombok.Data
     public static class GamePrivateMessage {
         private String playerUuid;
-        private String role;
+        private RoleType role;
         private String word;
     }
 
