@@ -5,6 +5,7 @@ import com.insidergame.insider_api.dto.CreateRoomRequest;
 import com.insidergame.insider_api.dto.JoinRoomRequest;
 import com.insidergame.insider_api.dto.LeaveRoomRequest;
 import com.insidergame.insider_api.dto.RoomResponse;
+import com.insidergame.insider_api.enums.RoomStatus;
 import com.insidergame.insider_api.manager.RoomManager;
 import com.insidergame.insider_api.model.Player;
 import com.insidergame.insider_api.model.Room;
@@ -103,7 +104,7 @@ public class RoomServiceImpl implements RoomService {
             }
 
             // Check room status
-            if (!"WAITING".equals(room.getStatus())) {
+            if (!RoomStatus.WAITING.equals(room.getStatus())) {
                 return new ApiResponse<>(false, "Room is not accepting new players", null, HttpStatus.CONFLICT);
             }
 

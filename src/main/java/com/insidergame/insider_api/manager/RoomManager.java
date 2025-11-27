@@ -63,7 +63,7 @@ public class RoomManager {
      */
     public List<Room> getAvailableRooms() {
         return rooms.values().stream()
-                .filter(room -> "WAITING".equals(room.getStatus()))
+                .filter(room -> RoomStatus.WAITING.equals(room.getStatus()))
                 .filter(room -> !room.isFull())
                 .collect(Collectors.toList());
     }
@@ -80,7 +80,7 @@ public class RoomManager {
      */
     public boolean addPlayerToRoom(String roomCode, Player player) {
         Room room = rooms.get(roomCode);
-        if (room != null && !room.isFull() && "WAITING".equals(room.getStatus())) {
+        if (room != null && !room.isFull() && RoomStatus.WAITING.equals(room.getStatus())) {
             // Check if player already exists in the room (by UUID)
             boolean playerExists = room.getPlayers().stream()
                     .anyMatch(p -> p.getUuid().equals(player.getUuid()));

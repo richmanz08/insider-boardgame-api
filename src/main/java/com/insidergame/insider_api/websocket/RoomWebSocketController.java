@@ -191,9 +191,9 @@ public class RoomWebSocketController {
                     if (request.isActive()) {
                         player.setLastActiveAt(LocalDateTime.now());
                     }
-                    if(player.isReady()){
-                        player.setReady(false);
-                    }
+//                    if(player.isReady()){
+//                        player.setReady(false);
+//                    }
                 });
 
         // Broadcast update so other clients see active/inactive change
