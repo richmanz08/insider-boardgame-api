@@ -47,9 +47,7 @@ public class GameManager {
     public Optional<Game> startCountdown(String roomCode) {
         Game g = activeGameByRoom.get(roomCode);
         if (g == null) return Optional.empty();
-        LocalDateTime now = LocalDateTime.now();
-        g.setStartedAt(now);
-        g.setEndsAt(now.plusSeconds(g.getDurationSeconds()));
+
         return Optional.of(g);
     }
 

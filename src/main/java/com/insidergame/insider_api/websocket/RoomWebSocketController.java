@@ -21,6 +21,7 @@ import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -513,8 +514,11 @@ public class RoomWebSocketController {
                 }
                 if (roleEnum == null) roleEnum = RoleType.CITIZEN; // fallback
                 boolean showWord = roleEnum == RoleType.MASTER || roleEnum == RoleType.INSIDER;
-
+                boolean allIsOpened = g.getCardOpened() != null && g.getCardOpened().values().stream().allMatch(Boolean::booleanValue);
                 // Build a serializable map for the game payload using mutable map (allows null values)
+
+
+
                 Map<String, Object> gameMap = new java.util.HashMap<>();
                 gameMap.put("id", g.getId() == null ? null : g.getId().toString());
                 gameMap.put("roomCode", g.getRoomCode());
@@ -525,6 +529,12 @@ public class RoomWebSocketController {
                 gameMap.put("durationSeconds", g.getDurationSeconds());
                 gameMap.put("finished", g.isFinished());
                 gameMap.put("cardOpened", g.getCardOpened());
+
+                if(allIsOpened){
+                    LocalDateTime now = LocalDateTime.now();
+                    gameMap.put("startedAt", now);
+                    gameMap.put("endsAt",now.plusSeconds(g.getDurationSeconds()));
+                }
 
                 payload.put("game", gameMap);
             }
