@@ -1,5 +1,6 @@
 package com.insidergame.insider_api.api.game;
 
+import com.insidergame.insider_api.enums.RoleType;
 import com.insidergame.insider_api.api.category.CategoryServiceImpl;
 import com.insidergame.insider_api.common.ApiResponse;
 import com.insidergame.insider_api.entity.CategoryEntity;
@@ -53,19 +54,19 @@ public class GameServiceImpl implements GameService {
             CategoryEntity pick = categories.get(new Random().nextInt(categories.size()));
             String word = pick.getCategoryName();
 
-            // Assign roles: one MASTER, one INSIDER, rest PLAYER
+            // Assign roles: one MASTER, one INSIDER, rest CITIZEN
             List<String> uuids = players.stream().map(Player::getUuid).collect(Collectors.toList());
             Collections.shuffle(uuids);
-            Map<String, String> roles = new HashMap<>();
+            Map<String, RoleType> roles = new HashMap<>();
             // First is MASTER
-            roles.put(uuids.get(0), "MASTER");
+            roles.put(uuids.get(0), RoleType.MASTER);
             // Second is INSIDER
             if (uuids.size() >= 2) {
-                roles.put(uuids.get(1), "INSIDER");
+                roles.put(uuids.get(1), RoleType.INSIDER);
             }
-            // the rest are PLAYER
+            // the rest are CITIZEN
             for (int i = 2; i < uuids.size(); i++) {
-                roles.put(uuids.get(i), "PLAYER");
+                roles.put(uuids.get(i), RoleType.CITIZEN);
             }
 
             // Create game with 60 seconds duration

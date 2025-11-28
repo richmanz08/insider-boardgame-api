@@ -1,6 +1,7 @@
 package com.insidergame.insider_api.manager;
 
 import com.insidergame.insider_api.model.Game;
+import com.insidergame.insider_api.enums.RoleType;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
@@ -18,7 +19,8 @@ public class GameManager {
         return Optional.ofNullable(activeGameByRoom.get(roomCode));
     }
 
-    public Game createGame(String roomCode, String word, int durationSeconds, Map<String, String> roles) {
+    public Game createGame(String roomCode, String word, int durationSeconds, Map<String, RoleType> roles) {
+        // convert roles map into model type (RoleType) stored in Game
         Game game = Game.builder()
                 .id(UUID.randomUUID())
                 .roomCode(roomCode)

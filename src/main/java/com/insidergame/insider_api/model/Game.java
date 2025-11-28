@@ -1,5 +1,6 @@
 package com.insidergame.insider_api.model;
 
+import com.insidergame.insider_api.enums.RoleType;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -17,7 +18,7 @@ public class Game {
     private UUID id;
     private String roomCode;
     private String word;
-    private Map<String, String> roles; // playerUuid -> role (MASTER/INSIDER/PLAYER)
+    private Map<String, RoleType> roles; // playerUuid -> role (MASTER/INSIDER/PLAYER)
     private LocalDateTime startedAt;
     private LocalDateTime endsAt;
     private int durationSeconds;

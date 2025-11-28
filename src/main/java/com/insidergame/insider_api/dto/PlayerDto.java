@@ -16,4 +16,5 @@ public class PlayerDto {
     private String joinedAt;
     private boolean isActive;
     private String lastActiveAt;
+
 }

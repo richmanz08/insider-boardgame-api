@@ -1,6 +1,7 @@
 package com.insidergame.insider_api.dto;
 
 import com.insidergame.insider_api.enums.RoomStatus;
+import com.insidergame.insider_api.model.Game;
 import lombok.*;
 
 import java.util.List;
