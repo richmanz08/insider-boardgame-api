@@ -21,5 +21,5 @@ public class RoomUpdateMessage {
     private RoomStatus status;
     private List<PlayerDto> players;
     private String message;
-    private GameSummaryDto activeGame; // New: optional active game summary for countdown sync
+//    private GameSummaryDto activeGame; // New: optional active game summary for countdown sync
 }
