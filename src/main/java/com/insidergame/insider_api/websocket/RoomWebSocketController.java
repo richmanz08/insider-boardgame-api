@@ -285,6 +285,22 @@ public class RoomWebSocketController {
 
             Game game = resp.getData();
 
+            // Mark participating players as playing and ready in the room so clients see updated state
+            try {
+                var roomOpt = roomManager.getRoom(roomCode);
+                if (roomOpt.isPresent()) {
+                    var room = roomOpt.get();
+                    var participants = game.getRoles() == null ? java.util.Collections.<String>emptySet() : game.getRoles().keySet();
+                    for (Player p : room.getPlayers()) {
+                        if (p == null) continue;
+                        if (participants.contains(p.getUuid())) {
+                            p.setPlaying(true);
+                           if(p.isReady()) p.setReady(false);
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+
             // Broadcast general game started update (includes activeGame in RoomUpdateMessage)
             broadcastRoomUpdate(roomCode, "GAME_STARTED");
 
@@ -444,6 +460,7 @@ public class RoomWebSocketController {
                 .playerName(player.getPlayerName())
                 .isHost(player.isHost())
                 .isReady(player.isReady())
+                .isPlaying(player.isPlaying())
                 .joinedAt(player.getJoinedAt() == null ? null : player.getJoinedAt().format(formatter))
                 .isActive(player.isActive())
                 .lastActiveAt(player.getLastActiveAt() == null ? null : player.getLastActiveAt().format(formatter))

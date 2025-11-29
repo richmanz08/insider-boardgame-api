@@ -23,6 +23,9 @@ public class Player {
     @Builder.Default
     private boolean isReady = false; // Ready status for game start
 
+    @Builder.Default
+    private  boolean isPlaying = false; // Whether the player is currently playing in a game
+
     // New: whether the player is currently active (not intentionally left)
     @Builder.Default
     private boolean isActive = true;

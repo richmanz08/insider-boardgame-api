@@ -119,8 +119,10 @@ public class RoomController {
                 .playerName(player.getPlayerName())
                 .isHost(player.isHost())
                 .isReady(player.isReady())
+                .isPlaying(player.isPlaying())
                 .joinedAt(player.getJoinedAt().format(formatter))
+                .isActive(player.isActive())
+                .lastActiveAt(player.getLastActiveAt() == null ? null : player.getLastActiveAt().format(formatter))
                 .build();
     }
 }
-
