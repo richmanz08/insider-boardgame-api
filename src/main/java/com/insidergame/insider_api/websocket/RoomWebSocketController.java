@@ -1,6 +1,5 @@
 package com.insidergame.insider_api.websocket;
 
-import com.insidergame.insider_api.dto.GameSummaryDto;
 import com.insidergame.insider_api.dto.PlayerDto;
 import com.insidergame.insider_api.dto.RoomUpdateMessage;
 import com.insidergame.insider_api.enums.RoleType;
@@ -25,8 +24,10 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -39,6 +40,8 @@ public class RoomWebSocketController {
     private final SimpMessagingTemplate messagingTemplate;
     private final GameService gameService;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    // Track pending scheduled "set room to PLAYING" tasks so we can cancel if someone un-readies
+    private final Map<String, ScheduledFuture<?>> pendingPlayTasks = new ConcurrentHashMap<>();
 
     public RoomWebSocketController(RoomManager roomManager, SimpMessagingTemplate messagingTemplate, GameService gameService) {
         this.roomManager = roomManager;
@@ -72,6 +75,36 @@ public class RoomWebSocketController {
 
         // Broadcast update to all players in room
         broadcastRoomUpdate(roomCode, "PLAYER_READY");
+
+        // If all players are ready and room is still WAITING => schedule transition to PLAYING in 5 seconds.
+        try {
+            boolean allReady = room.getPlayers().stream().allMatch(Player::isReady);
+            if (allReady && room.getStatus() == RoomStatus.WAITING) {
+                // Schedule only if not already scheduled
+                if (!pendingPlayTasks.containsKey(roomCode)) {
+                    ScheduledFuture<?> f = scheduler.schedule(() -> {
+                        try {
+                            roomManager.updateRoomStatus(roomCode, RoomStatus.PLAYING);
+                            broadcastRoomUpdate(roomCode, "ROOM_PLAYING");
+                            log.info("Room {} auto-transitioned to PLAYING after all ready", roomCode);
+                        } catch (Exception ex) {
+                            log.error("Error auto-starting room {}: {}", roomCode, ex.getMessage(), ex);
+                        } finally {
+                            pendingPlayTasks.remove(roomCode);
+                        }
+                    }, 5, TimeUnit.SECONDS);
+                    pendingPlayTasks.put(roomCode, f);
+                }
+            } else {
+                // Not all ready anymore - cancel pending task if any
+                ScheduledFuture<?> prev = pendingPlayTasks.remove(roomCode);
+                if (prev != null) {
+                    prev.cancel(false);
+                    log.info("Cancelled pending auto-play for room {} because not all players are ready", roomCode);
+                }
+            }
+        } catch (Exception ignored) {}
+
     }
 
     /**
