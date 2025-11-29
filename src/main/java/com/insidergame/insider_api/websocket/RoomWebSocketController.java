@@ -6,6 +6,7 @@ import com.insidergame.insider_api.enums.RoleType;
 import com.insidergame.insider_api.enums.RoomStatus;
 import com.insidergame.insider_api.manager.RoomManager;
 import com.insidergame.insider_api.model.Game;
+import com.insidergame.insider_api.model.GamePrivateMessage;
 import com.insidergame.insider_api.model.Player;
 import com.insidergame.insider_api.model.Room;
 import com.insidergame.insider_api.service.GameService;
@@ -511,12 +512,6 @@ public class RoomWebSocketController {
         private String triggerByUuid;
     }
 
-    @lombok.AllArgsConstructor @lombok.Data
-    public static class GamePrivateMessage {
-        private String playerUuid;
-        private RoleType role;
-        private String word;
-    }
 
     @lombok.Data
     public static class CardOpenRequest {
@@ -562,6 +557,13 @@ public class RoomWebSocketController {
                 gameMap.put("durationSeconds", g.getDurationSeconds());
                 gameMap.put("finished", g.isFinished());
                 gameMap.put("cardOpened", g.getCardOpened());
+
+                // Include per-user private info (role + word when applicable) so clients who reconnect
+                // can receive their private GamePrivateMessage together with the active game snapshot.
+                try {
+                    GamePrivateMessage pm = new GamePrivateMessage(request.getPlayerUuid(), roleEnum, showWord ? g.getWord() : "");
+                    gameMap.put("privateMessage", pm);
+                } catch (Exception ignored) {}
 
                 if(allIsOpened){
                     LocalDateTime now = LocalDateTime.now();
