@@ -37,6 +37,7 @@ public class GameManager {
                 .endsAt(null)
                 .finished(false)
                 .cardOpened(new HashMap<>())
+                .votes(new HashMap<>())
                 .build();
 
         // initialize cardOpened map for all players
@@ -123,5 +124,21 @@ public class GameManager {
 
     public List<Game> getGamesForRoom(String roomCode) {
         return gamesByRoom.getOrDefault(roomCode, Collections.emptyList());
+    }
+
+    // Record a vote during voting phase: voterUuid votes for targetUuid. Returns current tally map.
+    public Map<String, Integer> recordVote(String roomCode, String voterUuid, String targetUuid) {
+        Game g = activeGameByRoom.get(roomCode);
+        if (g == null) return Collections.emptyMap();
+        if (g.getVotes() == null) g.setVotes(new HashMap<>());
+        g.getVotes().put(voterUuid, targetUuid);
+
+        // compute tally
+        Map<String, Integer> tally = new HashMap<>();
+        for (String t : g.getVotes().values()) {
+            tally.put(t, tally.getOrDefault(t, 0) + 1);
+        }
+
+        return tally;
     }
 }

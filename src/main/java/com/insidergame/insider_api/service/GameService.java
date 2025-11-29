@@ -15,4 +15,7 @@ public interface GameService {
 
     // Start countdown for active game (set startedAt/endsAt) and return the started Game
     ApiResponse<Game> startCountdown(String roomCode);
+
+    // Cast a vote during voting phase
+    ApiResponse<Boolean> castVote(String roomCode, String voterUuid, String targetUuid);
 }

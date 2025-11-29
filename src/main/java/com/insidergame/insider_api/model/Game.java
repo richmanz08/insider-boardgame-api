@@ -25,5 +25,9 @@ public class Game {
     private boolean finished;
     // Track whether each player has opened their card: playerUuid -> opened
     private Map<String, Boolean> cardOpened;
+    // Votes during voting phase: voterUuid -> targetPlayerUuid
+    private Map<String, String> votes;
     private GamePrivateMessage privateMessage;
+
+
 }

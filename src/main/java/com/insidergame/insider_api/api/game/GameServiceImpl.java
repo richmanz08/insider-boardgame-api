@@ -165,5 +165,17 @@ public class GameServiceImpl implements GameService {
         }
     }
 
+    @Override
+    public ApiResponse<Boolean> castVote(String roomCode, String voterUuid, String targetUuid) {
+        try {
+            var tally = gameManager.recordVote(roomCode, voterUuid, targetUuid);
+            if (tally == null || tally.isEmpty()) {
+                return new ApiResponse<>(false, "Failed to record vote", false, null);
+            }
+            return new ApiResponse<>(true, "Vote cast", true, null);
+        } catch (Exception ex) {
+            return new ApiResponse<>(false, ex.getMessage(), false, null);
+        }
+    }
 
 }

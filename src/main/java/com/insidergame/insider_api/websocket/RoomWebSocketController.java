@@ -593,6 +593,13 @@ public class RoomWebSocketController {
         private String playerUuid;
     }
 
+    // Payload for vote requests
+    @lombok.Data
+    public static class VoteRequest {
+        private String playerUuid;
+        private String targetPlayerUuid;
+    }
+
     /**
      * MASTER can end the play early to trigger voting
      * Client sends: /app/room/{roomCode}/master_end
@@ -682,6 +689,30 @@ public class RoomWebSocketController {
 
         } catch (Exception ex) {
             log.error("Error handling master_end: {}", ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Player votes for another player during voting phase
+     * Client sends: /app/room/{roomCode}/vote
+     * Payload: { playerUuid, targetPlayerUuid }
+     */
+    @MessageMapping("/room/{roomCode}/vote")
+    public void votePlayer(@DestinationVariable String roomCode, @Payload VoteRequest request) {
+        log.info("Vote request from player={} in room={} for target={}", request.getPlayerUuid(), roomCode, request.getTargetPlayerUuid());
+
+        try {
+            var resp = gameService.castVote(roomCode, request.getPlayerUuid(), request.getTargetPlayerUuid());
+            if (resp == null || !resp.isSuccess()) {
+                log.warn("castVote failed for room={} voter={} target={}", roomCode, request.getPlayerUuid(), request.getTargetPlayerUuid());
+                return;
+            }
+
+            // Broadcast VOTE_CAST update so clients see updated votes
+            broadcastRoomUpdate(roomCode, "VOTE_CAST");
+
+        } catch (Exception ex) {
+            log.error("Error casting vote: {}", ex.getMessage(), ex);
         }
     }
 
