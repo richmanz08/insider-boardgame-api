@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CopilotDiffPersistence">
+    <option name="pendingDiffs">
+      <map>
+        <entry key="$PROJECT_DIR$/src/main/java/com/insidergame/insider_api/enums/RoomStatus.java">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/src/main/java/com/insidergame/insider_api/enums/RoomStatus.java" />
+              <option name="originalContent" value="package com.insidergame.insider_api.enums;&#10;&#10;public enum RoomStatus {&#10;    WAITING ,&#10;    PLAYING,&#10;}&#10;" />
+              <option name="updatedContent" value="package com.insidergame.insider_api.enums;&#10;&#10;public enum RoomStatus {&#10;    WAITING ,&#10;    PLAYING,&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+        <entry key="$PROJECT_DIR$/src/main/java/com/insidergame/insider_api/model/Game.java">
+          <value>
+            <PendingDiffInfo>
+              <option name="filePath" value="$PROJECT_DIR$/src/main/java/com/insidergame/insider_api/model/Game.java" />
+              <option name="originalContent" value="package com.insidergame.insider_api.model;&#10;&#10;import com.insidergame.insider_api.enums.RoleType;&#10;import com.insidergame.insider_api.websocket.RoomWebSocketController;&#10;import lombok.AllArgsConstructor;&#10;import lombok.Builder;&#10;import lombok.Data;&#10;import lombok.NoArgsConstructor;&#10;&#10;import java.time.LocalDateTime;&#10;import java.util.Map;&#10;import java.util.UUID;&#10;&#10;@Data&#10;@Builder&#10;@NoArgsConstructor&#10;@AllArgsConstructor&#10;public class Game {&#10;    private UUID id;&#10;    private String roomCode;&#10;    private String word;&#10;    private Map&lt;String, RoleType&gt; roles; // playerUuid -&gt; role (MASTER/INSIDER/PLAYER)&#10;    private LocalDateTime startedAt;&#10;    private LocalDateTime endsAt;&#10;    private int durationSeconds;&#10;    private boolean finished;&#10;    // Track whether each player has opened their card: playerUuid -&gt; opened&#10;    private Map&lt;String, Boolean&gt; cardOpened;&#10;    private GamePrivateMessage privateMessage;&#10;}&#10;" />
+              <option name="updatedContent" value="package com.insidergame.insider_api.model;&#10;&#10;import com.insidergame.insider_api.enums.RoleType;&#10;import lombok.AllArgsConstructor;&#10;import lombok.Builder;&#10;import lombok.Data;&#10;import lombok.NoArgsConstructor;&#10;&#10;import java.time.LocalDateTime;&#10;import java.util.Map;&#10;import java.util.UUID;&#10;&#10;@Data&#10;@Builder&#10;@NoArgsConstructor&#10;@AllArgsConstructor&#10;public class Game {&#10;    private UUID id;&#10;    private String roomCode;&#10;    private String word;&#10;    private Map&lt;String, RoleType&gt; roles; // playerUuid -&gt; role (MASTER/INSIDER/PLAYER)&#10;    private LocalDateTime startedAt;&#10;    private LocalDateTime endsAt;&#10;    private int durationSeconds;&#10;    private boolean finished;&#10;    // Track whether each player has opened their card: playerUuid -&gt; opened&#10;    private Map&lt;String, Boolean&gt; cardOpened;&#10;    private GamePrivateMessage privateMessage;&#10;}" />
+            </PendingDiffInfo>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+</project>

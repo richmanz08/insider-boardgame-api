@@ -343,6 +343,8 @@ public class RoomWebSocketController {
         }
     }
 
+
+
     /**
      * Player opens their role card
      * Client sends: /app/room/{roomCode}/open_card
@@ -589,6 +591,98 @@ public class RoomWebSocketController {
     @lombok.Data
     public static class ActiveGameRequest {
         private String playerUuid;
+    }
+
+    /**
+     * MASTER can end the play early to trigger voting
+     * Client sends: /app/room/{roomCode}/master_end
+     * Payload: { playerUuid }
+     */
+    @MessageMapping("/room/{roomCode}/master_end")
+    public void masterEnd(@DestinationVariable String roomCode, @Payload ActiveGameRequest request) {
+        log.info("Master end requested by {} in room {}", request.getPlayerUuid(), roomCode);
+
+        try {
+            var resp = gameService.getActiveGame(roomCode);
+            if (resp == null || !resp.isSuccess() || resp.getData() == null) {
+                log.warn("No active game in room {} to end", roomCode);
+                return;
+            }
+
+            Game g = resp.getData();
+            if (g.getRoles() == null) {
+                log.warn("Active game in room {} has no roles", roomCode);
+                return;
+            }
+
+            // Ensure requester is MASTER
+            RoleType role = g.getRoles().get(request.getPlayerUuid());
+            if (role != RoleType.MASTER) {
+                log.warn("Player {} is not MASTER in room {} - cannot end game", request.getPlayerUuid(), roomCode);
+                return;
+            }
+
+            // Move endsAt earlier to start voting period; choose a short delay (e.g., 10 seconds) to allow clients to prepare
+            int voteDelaySeconds = 3;
+            var now = java.time.LocalDateTime.now();
+            g.setEndsAt(now.plusSeconds(voteDelaySeconds));
+
+//            // Update room status to VOTING
+//            roomManager.updateRoomStatus(roomCode, RoomStatus.VOTING);
+
+            // Broadcast that voting started (so clients switch UI)
+            broadcastRoomUpdate(roomCode, "VOTE_STARTED");
+
+            // Schedule finish at new endsAt
+//            long millis = java.time.Duration.between(java.time.LocalDateTime.now(), g.getEndsAt()).toMillis();
+//            if (millis > 0) {
+//                scheduler.schedule(() -> {
+//                    try {
+//                        gameService.finishGame(roomCode);
+//                        broadcastRoomUpdate(roomCode, "GAME_FINISHED");
+//                    } catch (Exception ex) {
+//                        log.error("Error finishing scheduled game after master_end: {}", ex.getMessage(), ex);
+//                    }
+//                }, millis, java.util.concurrent.TimeUnit.MILLISECONDS);
+//            }
+
+            // Also send active_game snapshot to participants so they see new endsAt/private info
+            try {
+                // reuse currentGame logic by publishing directly to each player's session via messagingTemplate
+                for (String playerUuid : g.getRoles().keySet()) {
+                    Player p = roomManager.getRoom(roomCode).orElseThrow().getPlayers().stream().filter(pl -> pl.getUuid().equals(playerUuid)).findFirst().orElse(null);
+                    if (p == null || p.getSessionId() == null) continue;
+                    SimpMessageHeaderAccessor sha = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
+                    sha.setSessionId(p.getSessionId());
+                    sha.setLeaveMutable(true);
+
+                    // Build per-player payload similar to currentGame
+                    RoleType playerRole = g.getRoles().get(playerUuid);
+                    boolean showWord = playerRole == RoleType.MASTER || playerRole == RoleType.INSIDER;
+                    Map<String, Object> gameMap = new java.util.HashMap<>();
+                    gameMap.put("id", g.getId() == null ? null : g.getId().toString());
+                    gameMap.put("roomCode", g.getRoomCode());
+                    gameMap.put("word", showWord ? g.getWord() : "");
+                    gameMap.put("roles", g.getRoles());
+                    gameMap.put("startedAt", g.getStartedAt() == null ? null : g.getStartedAt().toString());
+                    gameMap.put("endsAt", g.getEndsAt() == null ? null : g.getEndsAt().toString());
+                    gameMap.put("durationSeconds", g.getDurationSeconds());
+                    gameMap.put("finished", g.isFinished());
+                    gameMap.put("cardOpened", g.getCardOpened());
+
+                    GamePrivateMessage pm = new GamePrivateMessage(playerUuid, playerRole, showWord ? g.getWord() : "");
+                    gameMap.put("privateMessage", pm);
+
+                    Map<String, Object> payload = new java.util.HashMap<>();
+                    payload.put("game", gameMap);
+
+                    messagingTemplate.convertAndSendToUser(p.getSessionId(), "/queue/active_game", payload, sha.getMessageHeaders());
+                }
+            } catch (Exception ignored) {}
+
+        } catch (Exception ex) {
+            log.error("Error handling master_end: {}", ex.getMessage(), ex);
+        }
     }
 
 }
