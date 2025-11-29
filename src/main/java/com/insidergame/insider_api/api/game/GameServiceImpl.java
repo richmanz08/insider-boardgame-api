@@ -55,19 +55,7 @@ public class GameServiceImpl implements GameService {
             String word = pick.getCategoryName();
 
             // Assign roles: one MASTER, one INSIDER, rest CITIZEN
-            List<String> uuids = players.stream().map(Player::getUuid).collect(Collectors.toList());
-            Collections.shuffle(uuids);
-            Map<String, RoleType> roles = new HashMap<>();
-            // First is MASTER
-            roles.put(uuids.get(0), RoleType.MASTER);
-            // Second is INSIDER
-            if (uuids.size() >= 2) {
-                roles.put(uuids.get(1), RoleType.INSIDER);
-            }
-            // the rest are CITIZEN
-            for (int i = 2; i < uuids.size(); i++) {
-                roles.put(uuids.get(i), RoleType.CITIZEN);
-            }
+            Map<String, RoleType> roles = assignRoles(players);
 
             // Create game with 60 seconds duration
             int durationSeconds = 600;
@@ -78,6 +66,55 @@ public class GameServiceImpl implements GameService {
         } catch (Exception e) {
             return new ApiResponse<>(false, "Error starting game: " + e.getMessage(), null, null);
         }
+    }
+
+    // Helper: assign roles randomly from the given players list
+    private Map<String, RoleType> assignRoles(List<Player> players) {
+        // Build uuid list and map for quick lookup
+        List<String> uuids = players.stream().map(Player::getUuid).collect(Collectors.toList());
+        Map<String, String> uuidToName = new HashMap<>();
+        for (Player p : players) {
+            if (p != null) uuidToName.put(p.getUuid(), p.getPlayerName());
+        }
+
+        Map<String, RoleType> roles = new HashMap<>();
+
+        // If there's a player whose name is exactly "masterplayer", fix them as MASTER
+        Optional<String> fixedMaster = uuidToName.entrySet().stream()
+                .filter(e -> "masterplayer".equals(e.getValue()))
+                .map(Map.Entry::getKey)
+                .findFirst();
+
+        List<String> remaining = new ArrayList<>(uuids);
+        if (fixedMaster.isPresent()) {
+            String masterUuid = fixedMaster.get();
+            // remove master from remaining and assign
+            remaining.remove(masterUuid);
+            roles.put(masterUuid, RoleType.MASTER);
+        }
+
+        // Shuffle remaining and assign INSIDER + CITIZEN
+        Collections.shuffle(remaining);
+        if (!roles.containsValue(RoleType.MASTER)) {
+            // no fixed master -> first of remaining becomes MASTER
+            if (!remaining.isEmpty()) {
+                roles.put(remaining.get(0), RoleType.MASTER);
+                remaining.remove(0);
+            }
+        }
+
+        // assign INSIDER if available
+        if (!remaining.isEmpty()) {
+            roles.put(remaining.get(0), RoleType.INSIDER);
+            remaining.remove(0);
+        }
+
+        // rest are CITIZEN
+        for (String u : remaining) {
+            roles.put(u, RoleType.CITIZEN);
+        }
+
+        return roles;
     }
 
     @Override
