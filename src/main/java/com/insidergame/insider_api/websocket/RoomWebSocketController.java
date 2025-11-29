@@ -291,18 +291,8 @@ public class RoomWebSocketController {
             // Send private info to MASTER and INSIDER only using their sessionId
             Map<String, RoleType> roles = game.getRoles();
 
-            // Build role-only list for broadcast (no words in public broadcast)
-            List<GamePrivateMessage> roleOnlyList = roles.entrySet().stream()
-                    .map(e -> {
-                        RoleType rt = e.getValue() == null ? RoleType.CITIZEN : e.getValue();
-                        String w = (rt == RoleType.MASTER || rt == RoleType.INSIDER) ? game.getWord() : "";
-                        return new GamePrivateMessage(e.getKey(), rt, w);
-                    })
-                    .collect(Collectors.toList());
-
-            // Broadcast role-only info to topic
-            messagingTemplate.convertAndSend("/topic/room/" + roomCode + "/game_private", roleOnlyList);
-            log.info("Broadcasted role-only game_private to /topic/room/{}", roomCode);
+            // NOTE: We no longer broadcast role-only private info to a topic. Private info is
+            // delivered per-user via /user/queue/game_private and via active_game snapshot on reconnect.
 
             for (Map.Entry<String, RoleType> e : roles.entrySet()) {
                 String playerUuid = e.getKey();
