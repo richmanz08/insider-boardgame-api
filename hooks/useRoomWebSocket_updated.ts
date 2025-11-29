@@ -46,9 +46,8 @@ export function useRoomWebSocket(roomCode: string, playerUuid: string) {
         // Request per-user active game snapshot when:
         //  - the server announced CARD_OPENED (someone opened a card),
         //  - OR the game started (GAME_STARTED) — we need the full game to get roles/cardOpened/endsAt,
-        //  - OR a vote was cast (VOTE_CAST) — to see updated votes,
-        //  - OR voting started (VOTE_STARTED) — to see initial empty votes {},
         //  - OR the broadcast included an activeGame summary (safety).
+        //  - OR a vote was cast (VOTE_CAST) — to see updated votes
         if (
           update.type === "CARD_OPENED" ||
           update.type === "GAME_STARTED" ||
@@ -228,7 +227,7 @@ export function useRoomWebSocket(roomCode: string, playerUuid: string) {
           body: JSON.stringify({ playerUuid, targetPlayerUuid }),
         });
 
-        // Request active game immediately after voting to see updated votes
+        // Immediately request active game to see updated votes
         setTimeout(() => {
           if (clientRef.current?.connected) {
             console.log("🔄 Requesting active game after vote...");

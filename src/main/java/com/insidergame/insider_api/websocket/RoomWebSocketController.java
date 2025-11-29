@@ -326,17 +326,7 @@ public class RoomWebSocketController {
                 log.info("Sending private game message to session={} playerUuid={} role={}", sessionId, playerUuid, role);
                 messagingTemplate.convertAndSendToUser(sessionId, "/queue/game_private", pm, sha.getMessageHeaders());
             }
-
-            // Schedule finish via controller scheduler
-            int duration = game.getDurationSeconds();
-            scheduler.schedule(() -> {
-                try {
-                    gameService.finishGame(roomCode);
-                    broadcastRoomUpdate(roomCode, "GAME_FINISHED");
-                } catch (Exception ex) {
-                    log.error("Error finishing game scheduled: {}", ex.getMessage(), ex);
-                }
-            }, duration, TimeUnit.SECONDS);
+            
 
         } catch (Exception ex) {
             log.error("Error handling start game WS: {}", ex.getMessage(), ex);
@@ -373,19 +363,6 @@ public class RoomWebSocketController {
                 Game g = startResp.getData();
                 // Broadcast game started so clients receive activeGame with endsAt
                 broadcastRoomUpdate(roomCode, "GAME_STARTED");
-
-                // Schedule finish
-                long millis = java.time.Duration.between(java.time.LocalDateTime.now(), g.getEndsAt()).toMillis();
-                if (millis > 0) {
-                    scheduler.schedule(() -> {
-                        try {
-                            gameService.finishGame(roomCode);
-                            broadcastRoomUpdate(roomCode, "GAME_FINISHED");
-                        } catch (Exception ex) {
-                            log.error("Error finishing scheduled game: {}", ex.getMessage(), ex);
-                        }
-                    }, millis, java.util.concurrent.TimeUnit.MILLISECONDS);
-                }
             }
         } catch (Exception ignored) {}
     }
@@ -406,6 +383,8 @@ public class RoomWebSocketController {
             Map<String, Object> payload = new java.util.HashMap<>();
             if (resp == null || !resp.isSuccess() || resp.getData() == null) {
                 // explicit null game allowed in a mutable map
+                log.warn("No active game found for room={} (resp={}, success={}, data={})",
+                    roomCode, resp != null, resp != null && resp.isSuccess(), resp != null ? resp.getData() : null);
                 payload.put("game", null);
             } else {
                 Game g = resp.getData();
@@ -413,8 +392,11 @@ public class RoomWebSocketController {
                 // Only return active game to participants (players who have roles in the active game).
                 // If requester is not a participant (e.g., a spectator), do not reveal active game data.
                 java.util.Set<String> participants = g.getRoles() == null ? java.util.Collections.emptySet() : g.getRoles().keySet();
+                log.info("Active game check: requester={}, participants={}, roles={}",
+                    request.getPlayerUuid(), participants, g.getRoles());
                 if (!participants.contains(request.getPlayerUuid())) {
                     // requester not part of the active game -> deny active game payload
+                    log.warn("Player {} is NOT a participant in room {} - denying active game", request.getPlayerUuid(), roomCode);
                     payload.put("game", null);
                 } else {
                     RoleType roleEnum = null;
@@ -436,6 +418,7 @@ public class RoomWebSocketController {
                     gameMap.put("durationSeconds", g.getDurationSeconds());
                     gameMap.put("finished", g.isFinished());
                     gameMap.put("cardOpened", g.getCardOpened());
+                    gameMap.put("votes", g.getVotes());
 
                     // Include per-user private info (role + word when applicable) so clients who reconnect
                     // can receive their private GamePrivateMessage together with the active game snapshot.
@@ -676,6 +659,7 @@ public class RoomWebSocketController {
                     gameMap.put("durationSeconds", g.getDurationSeconds());
                     gameMap.put("finished", g.isFinished());
                     gameMap.put("cardOpened", g.getCardOpened());
+                    gameMap.put("votes", g.getVotes());
 
                     GamePrivateMessage pm = new GamePrivateMessage(playerUuid, playerRole, showWord ? g.getWord() : "");
                     gameMap.put("privateMessage", pm);

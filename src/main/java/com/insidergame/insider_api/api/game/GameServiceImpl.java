@@ -55,10 +55,10 @@ public class GameServiceImpl implements GameService {
             String word = pick.getCategoryName();
 
             // Assign roles: one MASTER, one INSIDER, rest CITIZEN
-            Map<String, RoleType> roles = assignRoles(players);
+            Map<String, RoleType> roles = assignRolesV2(players);
 
             // Create game with 60 seconds duration
-            int durationSeconds = 600;
+            int durationSeconds = 12;
             Game game = gameManager.createGame(roomCode, word, durationSeconds, roles);
 
             // Return created game; controller will handle broadcasting and scheduling finish
@@ -114,6 +114,22 @@ public class GameServiceImpl implements GameService {
             roles.put(u, RoleType.CITIZEN);
         }
 
+        return roles;
+    }
+
+    private  Map<String, RoleType> assignRolesV2(List<Player> players) {
+        Map<String, RoleType> roles = new HashMap<>();
+        List<String> uuids = players.stream().map(Player::getUuid).collect(Collectors.toList());
+        Collections.shuffle(uuids);
+        if (!uuids.isEmpty()) {
+            roles.put(uuids.get(0), RoleType.MASTER);
+        }
+        if (uuids.size() >= 2) {
+            roles.put(uuids.get(1), RoleType.INSIDER);
+        }
+        for (int i = 2; i < uuids.size(); i++) {
+            roles.put(uuids.get(i), RoleType.CITIZEN);
+        }
         return roles;
     }
 
