@@ -21,7 +21,6 @@ import org.springframework.messaging.simp.SimpMessageType;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -565,11 +564,8 @@ public class RoomWebSocketController {
                     gameMap.put("privateMessage", pm);
                 } catch (Exception ignored) {}
 
-                if(allIsOpened){
-                    LocalDateTime now = LocalDateTime.now();
-                    gameMap.put("startedAt", now);
-                    gameMap.put("endsAt",now.plusSeconds(g.getDurationSeconds()));
-                }
+                // Do not override startedAt/endsAt here. They are persisted by GameManager.startCountdown
+                // so refresh/reconnect won't reset the timer. Keep whatever is stored in the Game model.
 
                 payload.put("game", gameMap);
             }

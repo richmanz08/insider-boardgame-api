@@ -6,6 +6,7 @@ import com.insidergame.insider_api.model.Player;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -53,6 +54,26 @@ public class GameManager {
         Game g = activeGameByRoom.get(roomCode);
         if (g == null) return Optional.empty();
 
+        // Only start countdown when all players have opened their cards
+        Map<String, Boolean> cardOpened = g.getCardOpened();
+        if (cardOpened == null || cardOpened.isEmpty()) return Optional.empty();
+        boolean allOpened = cardOpened.values().stream().allMatch(Boolean::booleanValue);
+        if (!allOpened) {
+            // Not all players opened yet - do not start countdown
+            return Optional.empty();
+        }
+
+        // If countdown already started, return existing game
+        if (g.getStartedAt() != null && g.getEndsAt() != null) {
+            return Optional.of(g);
+        }
+
+        // Start countdown now and persist times on the Game model so subsequent
+        // active_game requests (e.g. after refresh) won't reset the timer.
+        LocalDateTime now = LocalDateTime.now();
+        g.setStartedAt(now);
+        g.setEndsAt(now.plusSeconds(g.getDurationSeconds()));
+
         return Optional.of(g);
     }
 
@@ -92,11 +113,6 @@ public class GameManager {
         return true;
     }
 
-    public boolean allCardsOpened(String roomCode) {
-        Game g = activeGameByRoom.get(roomCode);
-        if (g == null) return false;
-        return g.getCardOpened().values().stream().allMatch(Boolean::booleanValue);
-    }
 
     public void finishGame(String roomCode) {
         Game g = activeGameByRoom.remove(roomCode);
