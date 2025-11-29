@@ -399,6 +399,79 @@ public class RoomWebSocketController {
         } catch (Exception ignored) {}
     }
 
+
+    @MessageMapping("/room/{roomCode}/active_game")
+    public void currentGame(@DestinationVariable String roomCode, @Payload ActiveGameRequest request, MessageHeaders headers) {
+        String sessionId = SimpMessageHeaderAccessor.getSessionId(headers);
+        log.info("Active game requested by {} in room={} session={}", request.getPlayerUuid(), roomCode, sessionId);
+
+        try {
+            if (sessionId == null) {
+                log.warn("No sessionId present for active_game request from {} in room={}; skipping reply", request.getPlayerUuid(), roomCode);
+                return;
+            }
+
+            var resp = gameService.getActiveGame(roomCode);
+            Map<String, Object> payload = new java.util.HashMap<>();
+            if (resp == null || !resp.isSuccess() || resp.getData() == null) {
+                // explicit null game allowed in a mutable map
+                payload.put("game", null);
+            } else {
+                Game g = resp.getData();
+
+                // Only return active game to participants (players who have roles in the active game).
+                // If requester is not a participant (e.g., a spectator), do not reveal active game data.
+                java.util.Set<String> participants = g.getRoles() == null ? java.util.Collections.emptySet() : g.getRoles().keySet();
+                if (!participants.contains(request.getPlayerUuid())) {
+                    // requester not part of the active game -> deny active game payload
+                    payload.put("game", null);
+                } else {
+                    RoleType roleEnum = null;
+                    if (g.getRoles() != null) {
+                        roleEnum = g.getRoles().get(request.getPlayerUuid());
+                    }
+                    if (roleEnum == null) roleEnum = RoleType.CITIZEN; // fallback
+                    boolean showWord = roleEnum == RoleType.MASTER || roleEnum == RoleType.INSIDER;
+                    boolean allIsOpened = g.getCardOpened() != null && g.getCardOpened().values().stream().allMatch(Boolean::booleanValue);
+
+                    // Build a serializable map for the game payload using mutable map (allows null values)
+                    Map<String, Object> gameMap = new java.util.HashMap<>();
+                    gameMap.put("id", g.getId() == null ? null : g.getId().toString());
+                    gameMap.put("roomCode", g.getRoomCode());
+                    gameMap.put("word", showWord ? g.getWord() : "");
+                    gameMap.put("roles", g.getRoles());
+                    gameMap.put("startedAt", g.getStartedAt() == null ? null : g.getStartedAt().toString());
+                    gameMap.put("endsAt", g.getEndsAt() == null ? null : g.getEndsAt().toString());
+                    gameMap.put("durationSeconds", g.getDurationSeconds());
+                    gameMap.put("finished", g.isFinished());
+                    gameMap.put("cardOpened", g.getCardOpened());
+
+                    // Include per-user private info (role + word when applicable) so clients who reconnect
+                    // can receive their private GamePrivateMessage together with the active game snapshot.
+                    try {
+                        GamePrivateMessage pm = new GamePrivateMessage(request.getPlayerUuid(), roleEnum, showWord ? g.getWord() : "");
+                        gameMap.put("privateMessage", pm);
+                    } catch (Exception ignored) {}
+
+                    // Do not override startedAt/endsAt here. They are persisted by GameManager.startCountdown
+                    // so refresh/reconnect won't reset the timer. Keep whatever is stored in the Game model.
+
+                    payload.put("game", gameMap);
+                }
+            }
+
+            // Send to specific session
+            SimpMessageHeaderAccessor sha = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
+            sha.setSessionId(sessionId);
+            sha.setLeaveMutable(true);
+            messagingTemplate.convertAndSendToUser(sessionId, "/queue/active_game", payload, sha.getMessageHeaders());
+            log.info("Sent active_game to session={} (room={})", sessionId, roomCode);
+        } catch (Exception ex) {
+            log.error("Error handling active_game request: {}", ex.getMessage(), ex);
+        }
+    }
+
+
     /**
      * Broadcast room update to all subscribers
      */
@@ -522,70 +595,6 @@ public class RoomWebSocketController {
     @lombok.Data
     public static class CardOpenRequest {
         private String playerUuid;
-    }
-
-    @MessageMapping("/room/{roomCode}/active_game")
-    public void currentGame(@DestinationVariable String roomCode, @Payload ActiveGameRequest request, MessageHeaders headers) {
-        String sessionId = SimpMessageHeaderAccessor.getSessionId(headers);
-        log.info("Active game requested by {} in room={} session={}", request.getPlayerUuid(), roomCode, sessionId);
-
-        try {
-            if (sessionId == null) {
-                log.warn("No sessionId present for active_game request from {} in room={}; skipping reply", request.getPlayerUuid(), roomCode);
-                return;
-            }
-
-            var resp = gameService.getActiveGame(roomCode);
-            Map<String, Object> payload = new java.util.HashMap<>();
-            if (resp == null || !resp.isSuccess() || resp.getData() == null) {
-                // explicit null game allowed in a mutable map
-                payload.put("game", null);
-            } else {
-                Game g = resp.getData();
-                RoleType roleEnum = null;
-                if (g.getRoles() != null) {
-                    roleEnum = g.getRoles().get(request.getPlayerUuid());
-                }
-                if (roleEnum == null) roleEnum = RoleType.CITIZEN; // fallback
-                boolean showWord = roleEnum == RoleType.MASTER || roleEnum == RoleType.INSIDER;
-                boolean allIsOpened = g.getCardOpened() != null && g.getCardOpened().values().stream().allMatch(Boolean::booleanValue);
-                // Build a serializable map for the game payload using mutable map (allows null values)
-
-
-
-                Map<String, Object> gameMap = new java.util.HashMap<>();
-                gameMap.put("id", g.getId() == null ? null : g.getId().toString());
-                gameMap.put("roomCode", g.getRoomCode());
-                gameMap.put("word", showWord ? g.getWord() : "");
-                gameMap.put("roles", g.getRoles());
-                gameMap.put("startedAt", g.getStartedAt() == null ? null : g.getStartedAt().toString());
-                gameMap.put("endsAt", g.getEndsAt() == null ? null : g.getEndsAt().toString());
-                gameMap.put("durationSeconds", g.getDurationSeconds());
-                gameMap.put("finished", g.isFinished());
-                gameMap.put("cardOpened", g.getCardOpened());
-
-                // Include per-user private info (role + word when applicable) so clients who reconnect
-                // can receive their private GamePrivateMessage together with the active game snapshot.
-                try {
-                    GamePrivateMessage pm = new GamePrivateMessage(request.getPlayerUuid(), roleEnum, showWord ? g.getWord() : "");
-                    gameMap.put("privateMessage", pm);
-                } catch (Exception ignored) {}
-
-                // Do not override startedAt/endsAt here. They are persisted by GameManager.startCountdown
-                // so refresh/reconnect won't reset the timer. Keep whatever is stored in the Game model.
-
-                payload.put("game", gameMap);
-            }
-
-            // Send to specific session
-            SimpMessageHeaderAccessor sha = SimpMessageHeaderAccessor.create(SimpMessageType.MESSAGE);
-            sha.setSessionId(sessionId);
-            sha.setLeaveMutable(true);
-            messagingTemplate.convertAndSendToUser(sessionId, "/queue/active_game", payload, sha.getMessageHeaders());
-            log.info("Sent active_game to session={} (room={})", sessionId, roomCode);
-        } catch (Exception ex) {
-            log.error("Error handling active_game request: {}", ex.getMessage(), ex);
-        }
     }
 
     @lombok.Data
