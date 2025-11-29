@@ -70,7 +70,7 @@ public class GameServiceImpl implements GameService {
             }
 
             // Create game with 60 seconds duration
-            int durationSeconds = 60;
+            int durationSeconds = 600;
             Game game = gameManager.createGame(roomCode, word, durationSeconds, roles);
 
             // Return created game; controller will handle broadcasting and scheduling finish

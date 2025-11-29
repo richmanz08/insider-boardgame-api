@@ -2,18 +2,23 @@ package com.insidergame.insider_api.manager;
 
 import com.insidergame.insider_api.model.Game;
 import com.insidergame.insider_api.enums.RoleType;
+import com.insidergame.insider_api.model.Player;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
+@RequiredArgsConstructor
 public class GameManager {
     // roomCode -> list of games
     private final Map<String, List<Game>> gamesByRoom = new ConcurrentHashMap<>();
     // active game per room
     private final Map<String, Game> activeGameByRoom = new ConcurrentHashMap<>();
+
+    // Inject RoomManager to access players in a room (needed to detect bots)
+    private final RoomManager roomManager;
 
     public Optional<Game> getActiveGame(String roomCode) {
         return Optional.ofNullable(activeGameByRoom.get(roomCode));
@@ -59,6 +64,31 @@ public class GameManager {
         if (map == null || !map.containsKey(playerUuid)) return false;
         if (Boolean.TRUE.equals(map.get(playerUuid))) return false;
         map.put(playerUuid, true);
+
+        // If the player who opened is the room host, also mark bots' cards as opened
+        try {
+            var roomOpt = roomManager.getRoom(roomCode);
+            if (roomOpt.isPresent()) {
+                var room = roomOpt.get();
+                String hostUuid = room.getHostUuid();
+                if (hostUuid != null && hostUuid.equals(playerUuid)) {
+                    // Consider players whose name starts with "Bot " as bots (mocked in RoomServiceImpl)
+                    for (Player p : room.getPlayers()) {
+                        if (p == null) continue;
+                        String name = p.getPlayerName();
+                        if (name != null && name.startsWith("Bot ")) {
+                            String botUuid = p.getUuid();
+                            if (botUuid != null && map.containsKey(botUuid) && !Boolean.TRUE.equals(map.get(botUuid))) {
+                                map.put(botUuid, true);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // Don't fail card open if room lookup fails
+        }
+
         return true;
     }
 
