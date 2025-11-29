@@ -175,21 +175,10 @@ public class RoomWebSocketController {
             return;
         }
 
-        if (room.getStatus() != RoomStatus.WAITING) {
-            log.warn("Room {} is not accepting players (status={}) - cannot join via WS", roomCode, room.getStatus());
-            broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
-            return;
-        }
-
-        String playerName = request.getPlayerName();
-        if (playerName == null || playerName.isEmpty()) {
-            playerName = request.getPlayerUuid();
-        }
-
         // Build player and add to room via RoomManager (which already guards duplicates)
         Player player = Player.builder()
                 .uuid(request.getPlayerUuid())
-                .playerName(playerName)
+                .playerName(request.getPlayerName())
                 .joinedAt(java.time.LocalDateTime.now())
                 .isHost(false)
                 .isActive(true)

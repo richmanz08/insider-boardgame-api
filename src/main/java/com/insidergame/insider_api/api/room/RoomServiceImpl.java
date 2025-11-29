@@ -107,10 +107,10 @@ public class RoomServiceImpl implements RoomService {
                 return new ApiResponse<>(false, "Room is full", null, HttpStatus.CONFLICT);
             }
 
-            // Check room status
-            if (!RoomStatus.WAITING.equals(room.getStatus())) {
-                return new ApiResponse<>(false, "Room is not accepting new players", null, HttpStatus.CONFLICT);
-            }
+//            // Check room status
+//            if (!RoomStatus.WAITING.equals(room.getStatus())) {
+//                return new ApiResponse<>(false, "Room is not accepting new players", null, HttpStatus.CONFLICT);
+//            }
 
             // Check password if required
             if (room.hasPassword()) {
