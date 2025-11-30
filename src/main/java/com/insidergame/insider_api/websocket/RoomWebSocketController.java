@@ -326,7 +326,7 @@ public class RoomWebSocketController {
                 log.info("Sending private game message to session={} playerUuid={} role={}", sessionId, playerUuid, role);
                 messagingTemplate.convertAndSendToUser(sessionId, "/queue/game_private", pm, sha.getMessageHeaders());
             }
-            
+
 
         } catch (Exception ex) {
             log.error("Error handling start game WS: {}", ex.getMessage(), ex);
@@ -419,6 +419,7 @@ public class RoomWebSocketController {
                     gameMap.put("finished", g.isFinished());
                     gameMap.put("cardOpened", g.getCardOpened());
                     gameMap.put("votes", g.getVotes());
+                    gameMap.put("playerInGame", g.getPlayerInGame());
 
                     // Include per-user private info (role + word when applicable) so clients who reconnect
                     // can receive their private GamePrivateMessage together with the active game snapshot.
@@ -660,6 +661,7 @@ public class RoomWebSocketController {
                     gameMap.put("finished", g.isFinished());
                     gameMap.put("cardOpened", g.getCardOpened());
                     gameMap.put("votes", g.getVotes());
+                    gameMap.put("playerInGame", g.getPlayerInGame());
 
                     GamePrivateMessage pm = new GamePrivateMessage(playerUuid, playerRole, showWord ? g.getWord() : "");
                     gameMap.put("privateMessage", pm);

@@ -3,12 +3,14 @@ package com.insidergame.insider_api.manager;
 import com.insidergame.insider_api.model.Game;
 import com.insidergame.insider_api.enums.RoleType;
 import com.insidergame.insider_api.model.Player;
+import com.insidergame.insider_api.model.PlayerInGame;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -26,6 +28,19 @@ public class GameManager {
     }
 
     public Game createGame(String roomCode, String word, int durationSeconds, Map<String, RoleType> roles) {
+
+        List<Player> readyPlayPlayer = roomManager.getReadyToPlayPlayers(roomCode);
+
+
+        List<PlayerInGame> playerInGameList = readyPlayPlayer.stream()
+                .map(player -> PlayerInGame.builder()
+                        .uuid(player.getUuid())
+                        .playerName(player.getPlayerName())
+                        .build()
+                )
+                .collect(Collectors.toList());
+
+
         // convert roles map into model type (RoleType) stored in Game
         Game game = Game.builder()
                 .id(UUID.randomUUID())
@@ -37,6 +52,7 @@ public class GameManager {
                 .endsAt(null)
                 .finished(false)
                 .cardOpened(new HashMap<>())
+                .playerInGame(playerInGameList)
                 .votes(new HashMap<>())
                 .build();
 

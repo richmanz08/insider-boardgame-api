@@ -7,6 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -19,6 +20,7 @@ public class Game {
     private String roomCode;
     private String word;
     private Map<String, RoleType> roles; // playerUuid -> role (MASTER/INSIDER/PLAYER)
+    private List<PlayerInGame> playerInGame;
     private LocalDateTime startedAt;
     private LocalDateTime endsAt;
     private int durationSeconds;
@@ -28,6 +30,8 @@ public class Game {
     // Votes during voting phase: voterUuid -> targetPlayerUuid
     private Map<String, String> votes;
     private GamePrivateMessage privateMessage;
+    private GameSummary summary;
+
 
 
 }

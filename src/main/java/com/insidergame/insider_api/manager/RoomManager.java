@@ -179,4 +179,15 @@ public class RoomManager {
         return room.getPlayers().stream()
                 .anyMatch(player -> player.getUuid().equals(playerUuid));
     }
+
+
+    public List<Player> getReadyToPlayPlayers(String roomCode) {
+        Room room = rooms.get(roomCode);
+        if (room == null) {
+            return Collections.emptyList();
+        }
+        return room.getPlayers().stream()
+                .filter(Player::isReady)
+                .collect(Collectors.toList());
+    }
 }
