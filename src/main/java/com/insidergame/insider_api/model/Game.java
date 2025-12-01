@@ -19,6 +19,7 @@ public class Game {
     private UUID id;
     private String roomCode;
     private String word;
+    private boolean wordRevealed; // True when MASTER ends game - reveal word to all players
     private Map<String, RoleType> roles; // playerUuid -> role (MASTER/INSIDER/PLAYER)
     private List<PlayerInGame> playerInGame;
     private LocalDateTime startedAt;

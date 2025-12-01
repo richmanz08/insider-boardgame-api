@@ -46,6 +46,7 @@ public class GameManager {
                 .id(UUID.randomUUID())
                 .roomCode(roomCode)
                 .word(word)
+                .wordRevealed(false) // Word is hidden until MASTER ends the game
                 .roles(new HashMap<>(roles))
                 .startedAt(null)
                 .durationSeconds(durationSeconds)
