@@ -122,9 +122,14 @@ public class RoomServiceImpl implements RoomService {
             }
 
             // Add player to room
+            // Fallback to UUID if playerName is null or empty
+            String playerName = (request.getPlayerName() == null || request.getPlayerName().trim().isEmpty())
+                    ? request.getPlayerUuid()
+                    : request.getPlayerName();
+
             Player player = Player.builder()
                     .uuid(request.getPlayerUuid())
-                    .playerName(request.getPlayerName())
+                    .playerName(playerName)
                     .joinedAt(LocalDateTime.now())
                     .isHost(false)
                     .build();

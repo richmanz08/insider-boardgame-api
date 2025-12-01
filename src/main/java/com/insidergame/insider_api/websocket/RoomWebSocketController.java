@@ -178,9 +178,14 @@ public class RoomWebSocketController {
         }
 
         // Build player and add to room via RoomManager (which already guards duplicates)
+        // Fallback to UUID if playerName is null or empty
+        String playerName = (request.getPlayerName() == null || request.getPlayerName().trim().isEmpty())
+                ? request.getPlayerUuid()
+                : request.getPlayerName();
+
         Player player = Player.builder()
                 .uuid(request.getPlayerUuid())
-                .playerName(request.getPlayerName())
+                .playerName(playerName)
                 .joinedAt(java.time.LocalDateTime.now())
                 .isHost(false)
                 .isActive(true)

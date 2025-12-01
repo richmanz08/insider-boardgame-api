@@ -24,6 +24,9 @@ public class RoomManager {
     public Room createRoom(String roomCode, String roomName, Integer maxPlayers,
                            String password, String hostUuid, String hostName) {
 
+        // Fallback to UUID if hostName is null or empty
+        String actualHostName = (hostName == null || hostName.trim().isEmpty()) ? hostUuid : hostName;
+
         Room room = Room.builder()
                 .roomCode(roomCode)
                 .roomName(roomName)
@@ -31,15 +34,17 @@ public class RoomManager {
                 .password(password)
                 .status(RoomStatus.WAITING)
                 .hostUuid(hostUuid)
-                .hostName(hostName)
+                .hostName(actualHostName)
                 .createdAt(LocalDateTime.now())
                 .players(new HashSet<>())
                 .build();
 
         // Add host as first player
+        String playerName = actualHostName;
+
         Player host = Player.builder()
                 .uuid(hostUuid)
-                .playerName(hostName)
+                .playerName(playerName)
                 .joinedAt(LocalDateTime.now())
                 .isHost(true)
                 .build();
