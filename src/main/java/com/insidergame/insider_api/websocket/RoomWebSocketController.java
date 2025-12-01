@@ -576,7 +576,7 @@ public class RoomWebSocketController {
                     var finishResp = gameService.finishGameWithScoring(roomCode);
                     if (finishResp != null && finishResp.isSuccess()) {
                         log.info("Game finished with scoring in room={}", roomCode);
-                        broadcastRoomUpdate(roomCode, "GAME_FINISHED");
+                        broadcastRoomUpdate(roomCode, "GAME_FINISHED_WITH_SCORING");
                     }
                 }
             }
