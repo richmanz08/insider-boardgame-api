@@ -5,18 +5,35 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
 import java.util.Map;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GameSummary
-{
+public class GameSummary {
+    // Player scores: playerUuid -> score
+    private Map<String, Integer> scores;
+
+    // Vote tally: targetUuid -> vote count
+    private Map<String, Integer> voteTally;
+
+    // Most voted player(s)
+    private List<String> mostVoted;
+
+    // Was INSIDER caught? (INSIDER is most voted)
+    private boolean insiderCaught;
+
+    // Did CITIZENS answer the word correctly?
+    private boolean citizensAnsweredCorrectly;
+
+    // INSIDER uuid
     private String insiderUuid;
-    private String insiderName;
+
+    // MASTER uuid
     private String masterUuid;
-    private String masterName;
+
+    // The correct word
     private String word;
-    private Map<String, Integer> scores; // playerUuid -> score
 }

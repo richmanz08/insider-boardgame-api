@@ -58,7 +58,7 @@ public class RoomServiceImpl implements RoomService {
             );
 
             // Mock additional players (not counting host) up to 4, but don't exceed room capacity
-            mockPlayerBot(room, roomCode);
+//            mockPlayerBot(room, roomCode);
 
             // Broadcast initial room state so subscribers (if any) receive the room snapshot
             try {

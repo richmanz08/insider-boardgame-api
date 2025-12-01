@@ -18,4 +18,7 @@ public interface GameService {
 
     // Cast a vote during voting phase
     ApiResponse<Boolean> castVote(String roomCode, String voterUuid, String targetUuid);
+
+    // Finish game with scoring and summary calculation
+    ApiResponse<Game> finishGameWithScoring(String roomCode);
 }

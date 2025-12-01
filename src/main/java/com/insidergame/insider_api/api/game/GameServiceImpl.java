@@ -194,4 +194,132 @@ public class GameServiceImpl implements GameService {
         }
     }
 
+    @Override
+    public ApiResponse<Game> finishGameWithScoring(String roomCode) {
+        try {
+            var gameOpt = gameManager.getActiveGame(roomCode);
+            if (gameOpt.isEmpty()) {
+                return new ApiResponse<>(false, "No active game found", null, null);
+            }
+
+            Game game = gameOpt.get();
+
+            // Calculate scores and create summary
+            var summary = calculateGameSummary(game);
+            game.setSummary(summary);
+
+            // Mark game as finished
+//            gameManager.finishGame(roomCode);
+//            game.setFinished(true);
+
+            return new ApiResponse<>(true, "Game finished with scoring", game, null);
+        } catch (Exception ex) {
+            return new ApiResponse<>(false, "Error finishing game: " + ex.getMessage(), null, null);
+        }
+    }
+
+    private com.insidergame.insider_api.model.GameSummary calculateGameSummary(Game game) {
+        Map<String, Integer> scores = new HashMap<>();
+        Map<String, Integer> voteTally = new HashMap<>();
+
+        // Find INSIDER and MASTER
+        String insiderUuid = null;
+        String masterUuid = null;
+        List<String> citizenUuids = new ArrayList<>();
+
+        for (Map.Entry<String, RoleType> entry : game.getRoles().entrySet()) {
+            String uuid = entry.getKey();
+            RoleType role = entry.getValue();
+
+            scores.put(uuid, 0); // Initialize all scores to 0
+
+            if (role == RoleType.INSIDER) {
+                insiderUuid = uuid;
+            } else if (role == RoleType.MASTER) {
+                masterUuid = uuid;
+            } else if (role == RoleType.CITIZEN) {
+                citizenUuids.add(uuid);
+            }
+        }
+
+        // Calculate vote tally (exclude MASTER's vote from citizen vote count)
+        for (Map.Entry<String, String> vote : game.getVotes().entrySet()) {
+            String target = vote.getValue();
+            voteTally.put(target, voteTally.getOrDefault(target, 0) + 1);
+        }
+
+        // Find most voted player(s)
+        int maxVotes = voteTally.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+        List<String> mostVoted = voteTally.entrySet().stream()
+            .filter(e -> e.getValue() == maxVotes)
+            .map(Map.Entry::getKey)
+            .collect(Collectors.toList());
+
+        // Check if INSIDER was caught (is most voted)
+        boolean insiderCaught = mostVoted.contains(insiderUuid);
+
+        // TODO: Check if CITIZENS answered correctly - this needs to be tracked separately
+        // For now, assume false (you need to add this logic based on your game flow)
+        boolean citizensAnsweredCorrectly = false;
+
+        // Calculate CITIZEN scores
+        int citizenVotesForInsider = 0;
+        for (String citizenUuid : citizenUuids) {
+            String votedFor = game.getVotes().get(citizenUuid);
+            if (votedFor != null && votedFor.equals(insiderUuid)) {
+                citizenVotesForInsider++;
+            }
+        }
+
+        // CITIZEN scoring:
+        // +1 if more than half of CITIZENS voted for INSIDER
+        if (citizenUuids.size() > 0 && citizenVotesForInsider > citizenUuids.size() / 2.0) {
+            for (String citizenUuid : citizenUuids) {
+                scores.put(citizenUuid, scores.get(citizenUuid) + 1);
+            }
+        }
+
+        // +1 if CITIZENS answered the word correctly
+        if (citizensAnsweredCorrectly) {
+            for (String citizenUuid : citizenUuids) {
+                scores.put(citizenUuid, scores.get(citizenUuid) + 1);
+            }
+        }
+
+        // INSIDER scoring:
+        if (insiderUuid != null) {
+            // +1 if helped CITIZENS answer correctly
+            if (citizensAnsweredCorrectly) {
+                scores.put(insiderUuid, scores.get(insiderUuid) + 1);
+            }
+
+            // +1 if not caught (>= half of CITIZENS didn't vote for INSIDER)
+            if (citizenUuids.size() > 0 && citizenVotesForInsider < citizenUuids.size() / 2.0) {
+                scores.put(insiderUuid, scores.get(insiderUuid) + 1);
+            }
+        }
+
+        // MASTER scoring:
+        if (masterUuid != null) {
+            // +1 base score
+            scores.put(masterUuid, scores.get(masterUuid) + 1);
+
+            // +1 if caught INSIDER (INSIDER is most voted)
+            if (insiderCaught) {
+                scores.put(masterUuid, scores.get(masterUuid) + 1);
+            }
+        }
+
+        return com.insidergame.insider_api.model.GameSummary.builder()
+            .scores(scores)
+            .voteTally(voteTally)
+            .mostVoted(mostVoted)
+            .insiderCaught(insiderCaught)
+            .citizensAnsweredCorrectly(citizensAnsweredCorrectly)
+            .insiderUuid(insiderUuid)
+            .masterUuid(masterUuid)
+            .word(game.getWord())
+            .build();
+    }
+
 }

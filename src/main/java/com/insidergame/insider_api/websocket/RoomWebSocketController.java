@@ -420,6 +420,7 @@ public class RoomWebSocketController {
                     gameMap.put("cardOpened", g.getCardOpened());
                     gameMap.put("votes", g.getVotes());
                     gameMap.put("playerInGame", g.getPlayerInGame());
+                    gameMap.put("summary", g.getSummary());
 
                     // Include per-user private info (role + word when applicable) so clients who reconnect
                     // can receive their private GamePrivateMessage together with the active game snapshot.
@@ -577,6 +578,11 @@ public class RoomWebSocketController {
         private String playerUuid;
     }
 
+    @lombok.Data
+    public static class HostSummaryRequest {
+        private String playerUuid;
+    }
+
     // Payload for vote requests
     @lombok.Data
     public static class VoteRequest {
@@ -662,6 +668,7 @@ public class RoomWebSocketController {
                     gameMap.put("cardOpened", g.getCardOpened());
                     gameMap.put("votes", g.getVotes());
                     gameMap.put("playerInGame", g.getPlayerInGame());
+                    gameMap.put("summary", g.getSummary());
 
                     GamePrivateMessage pm = new GamePrivateMessage(playerUuid, playerRole, showWord ? g.getWord() : "");
                     gameMap.put("privateMessage", pm);
@@ -697,9 +704,37 @@ public class RoomWebSocketController {
             // Broadcast VOTE_CAST update so clients see updated votes
             broadcastRoomUpdate(roomCode, "VOTE_CAST");
 
+
         } catch (Exception ex) {
             log.error("Error casting vote: {}", ex.getMessage(), ex);
         }
     }
 
+    @MessageMapping("/room/{roomCode}/host_summary")
+    public void hostSummary(@DestinationVariable String roomCode, @Payload HostSummaryRequest request) {
+        // Check if all players have voted (including MASTER)
+        var gameResp = gameService.getActiveGame(roomCode);
+        if (gameResp != null && gameResp.isSuccess() && gameResp.getData() != null) {
+            Game g = gameResp.getData();
+            if (g.getVotes() != null && g.getRoles() != null) {
+                int totalPlayers = g.getRoles().size();
+                int totalVotes = g.getVotes().size();
+
+                log.info("Vote check: room={}, totalPlayers={}, totalVotes={}", roomCode, totalPlayers, totalVotes);
+
+                // All players have voted - finish game with scoring
+                if (totalVotes >= totalPlayers) {
+                    log.info("All players have voted in room={}. Finishing game with scoring...", roomCode);
+
+                    // Calculate scores and finish game
+                    var finishResp = gameService.finishGameWithScoring(roomCode);
+                    if (finishResp != null && finishResp.isSuccess()) {
+                        log.info("Game finished with scoring in room={}", roomCode);
+                        broadcastRoomUpdate(roomCode, "GAME_FINISHED");
+                    }
+                }
+            }
+        }
+
+    }
 }
