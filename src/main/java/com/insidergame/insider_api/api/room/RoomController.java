@@ -117,7 +117,6 @@ public class RoomController {
         return PlayerDto.builder()
                 .uuid(player.getUuid())
                 .playerName(player.getPlayerName())
-                .isHost(player.isHost())
                 .isReady(player.isReady())
                 .isPlaying(player.isPlaying())
                 .joinedAt(player.getJoinedAt().format(formatter))

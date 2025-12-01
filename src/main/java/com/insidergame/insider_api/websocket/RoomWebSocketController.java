@@ -39,14 +39,16 @@ public class RoomWebSocketController {
     private final RoomManager roomManager;
     private final SimpMessagingTemplate messagingTemplate;
     private final GameService gameService;
+    private final com.insidergame.insider_api.service.GameFinishService gameFinishService;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     // Track pending scheduled "set room to PLAYING" tasks so we can cancel if someone un-readies
     private final Map<String, ScheduledFuture<?>> pendingPlayTasks = new ConcurrentHashMap<>();
 
-    public RoomWebSocketController(RoomManager roomManager, SimpMessagingTemplate messagingTemplate, GameService gameService) {
+    public RoomWebSocketController(RoomManager roomManager, SimpMessagingTemplate messagingTemplate, GameService gameService, com.insidergame.insider_api.service.GameFinishService gameFinishService) {
         this.roomManager = roomManager;
         this.messagingTemplate = messagingTemplate;
         this.gameService = gameService;
+        this.gameFinishService = gameFinishService;
     }
 
     /**
@@ -577,6 +579,9 @@ public class RoomWebSocketController {
                     if (finishResp != null && finishResp.isSuccess()) {
                         log.info("Game finished with scoring in room={}", roomCode);
                         broadcastRoomUpdate(roomCode, "GAME_FINISHED_WITH_SCORING");
+
+                        // Schedule game finish and room reset after 5 seconds
+                        gameFinishService.scheduleGameFinish(roomCode);
                     }
                 }
             }
@@ -606,6 +611,7 @@ public class RoomWebSocketController {
                 .roomName(room.getRoomName())
                 .maxPlayers(room.getMaxPlayers())
                 .currentPlayers(room.getCurrentPlayers())
+                .hostUuid(room.getHostUuid())
                 .status(null)
                 .players(playerDtos)
                 .message(getMessageForType(type));
@@ -644,7 +650,6 @@ public class RoomWebSocketController {
         return PlayerDto.builder()
                 .uuid(player.getUuid())
                 .playerName(player.getPlayerName())
-                .isHost(player.isHost())
                 .isReady(player.isReady())
                 .isPlaying(player.isPlaying())
                 .joinedAt(player.getJoinedAt() == null ? null : player.getJoinedAt().format(formatter))

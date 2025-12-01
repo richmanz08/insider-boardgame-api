@@ -135,6 +135,21 @@ public class RoomManager {
     }
 
     /**
+     * Reset all players in room after game ends
+     */
+    public void resetPlayersAfterGame(String roomCode) {
+        Room room = rooms.get(roomCode);
+        if (room != null) {
+            for (Player player : room.getPlayers()) {
+                if (player != null) {
+                    player.setPlaying(false);
+                    player.setReady(false);
+                }
+            }
+        }
+    }
+
+    /**
      * Update room status
      */
     public void updateRoomStatus(String roomCode, RoomStatus status) {

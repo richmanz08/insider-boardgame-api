@@ -26,9 +26,11 @@ public class RoomServiceImpl implements RoomService {
     private final RoomManager roomManager;
     private final RoomCodeGenerator roomCodeGenerator;
     private final RoomWebSocketController webSocketController;
+    private final com.insidergame.insider_api.manager.GameManager gameManager;
 
-    public RoomServiceImpl(RoomManager roomManager, RoomCodeGenerator roomCodeGenerator, RoomWebSocketController webSocketController) {
+    public RoomServiceImpl(RoomManager roomManager, RoomCodeGenerator roomCodeGenerator, RoomWebSocketController webSocketController, com.insidergame.insider_api.manager.GameManager gameManager) {
         this.roomManager = roomManager;
+        this.gameManager = gameManager;
         this.roomCodeGenerator = roomCodeGenerator;
         this.webSocketController = webSocketController;
     }
@@ -223,6 +225,10 @@ public class RoomServiceImpl implements RoomService {
                 return new ApiResponse<>(false, "Only the host can delete the room", null, HttpStatus.FORBIDDEN);
             }
 
+            // Clear game history for this room
+            gameManager.clearGamesForRoom(roomCode);
+
+            // Delete the room
             roomManager.deleteRoom(roomCode);
             return new ApiResponse<>(true, "Room deleted successfully", null, HttpStatus.OK);
 

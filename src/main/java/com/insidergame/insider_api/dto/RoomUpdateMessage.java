@@ -21,4 +21,5 @@ public class RoomUpdateMessage {
     private RoomStatus status;
     private List<PlayerDto> players;
     private String message;
+    private String hostUuid;
 }

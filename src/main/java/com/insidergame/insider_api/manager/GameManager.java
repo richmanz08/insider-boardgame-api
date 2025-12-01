@@ -139,6 +139,23 @@ public class GameManager {
         }
     }
 
+    // Finish game and move to history
+    public Game finishAndArchiveGame(String roomCode) {
+        Game g = activeGameByRoom.remove(roomCode);
+        if (g != null) {
+            g.setFinished(true);
+            g.setWordRevealed(true); // Ensure word is revealed when game is archived
+            // Game is already in gamesByRoom list, just mark as finished
+        }
+        return g;
+    }
+
+    // Clear all games for a room (called when room is deleted)
+    public void clearGamesForRoom(String roomCode) {
+        activeGameByRoom.remove(roomCode);
+        gamesByRoom.remove(roomCode);
+    }
+
     public List<Game> getGamesForRoom(String roomCode) {
         return gamesByRoom.getOrDefault(roomCode, Collections.emptyList());
     }

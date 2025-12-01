@@ -11,7 +11,6 @@ public class PlayerDto {
 
     private String uuid;
     private String playerName;
-    private boolean isHost;
     private boolean isReady;
     private boolean isPlaying;
     private String joinedAt;
