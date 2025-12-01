@@ -213,6 +213,10 @@ public class RoomWebSocketController {
             return;
         }
 
+        // Check if leaving player is the host before removal
+        boolean wasHost = request.getPlayerUuid().equals(room.getHostUuid());
+        String oldHostUuid = wasHost ? room.getHostUuid() : null;
+
         boolean roomDeleted = roomManager.removePlayerFromRoom(roomCode, request.getPlayerUuid());
 
         if (roomDeleted) {
@@ -220,8 +224,17 @@ public class RoomWebSocketController {
             // Broadcast a ROOM_UPDATE so subscribers know the room state changed (it may be removed)
             broadcastRoomUpdate(roomCode, "ROOM_UPDATE");
         } else {
-            log.info("Player {} left room {}", request.getPlayerUuid(), roomCode);
-            broadcastRoomUpdate(roomCode, "PLAYER_LEFT");
+            // Check if host changed after removal
+            boolean hostChanged = wasHost && !room.getHostUuid().equals(oldHostUuid);
+
+            if (hostChanged) {
+                log.info("Player {} left room {} - Host transferred to {}",
+                        request.getPlayerUuid(), roomCode, room.getHostUuid());
+                broadcastRoomUpdate(roomCode, "HOST_TRANSFERRED");
+            } else {
+                log.info("Player {} left room {}", request.getPlayerUuid(), roomCode);
+                broadcastRoomUpdate(roomCode, "PLAYER_LEFT");
+            }
         }
     }
 

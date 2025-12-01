@@ -102,29 +102,89 @@ public class RoomManager {
     /**
      * Remove player from room
      * If room becomes empty, delete the room
+     * If host leaves, transfer host to the player who joined right after the host
      */
     public boolean removePlayerFromRoom(String roomCode, String playerUuid) {
         Room room = rooms.get(roomCode);
         if (room != null) {
+            // Check if the leaving player is the host before removing
+            boolean wasHost = playerUuid.equals(room.getHostUuid());
+
+            // Get the host's joinedAt time before removing (needed to find next player)
+            LocalDateTime hostJoinedAt = null;
+            if (wasHost) {
+                hostJoinedAt = room.getPlayers().stream()
+                        .filter(p -> p.getUuid().equals(playerUuid))
+                        .findFirst()
+                        .map(Player::getJoinedAt)
+                        .orElse(null);
+            }
+
+            // Remove the player
             room.removePlayer(playerUuid);
 
             // If room is empty, delete it
             if (room.isEmpty()) {
                 rooms.remove(roomCode);
+                log.info("Room {} deleted (empty after player {} left)", roomCode, playerUuid);
                 return true; // Room deleted
             }
 
-            // If host left, assign new host
-            if (playerUuid.equals(room.getHostUuid()) && !room.isEmpty()) {
-                Player newHost = room.getPlayers().iterator().next();
-                newHost.setHost(true);
-                room.setHostUuid(newHost.getUuid());
-                room.setHostName(newHost.getPlayerName());
+            // If host left, assign new host to the player who joined right after the old host
+            if (wasHost && !room.isEmpty()) {
+                Player newHost = findNextHost(room, hostJoinedAt);
+
+                if (newHost != null) {
+                    newHost.setHost(true);
+                    room.setHostUuid(newHost.getUuid());
+                    room.setHostName(newHost.getPlayerName());
+                    log.info("Host transferred in room {} from {} to {} ({})",
+                            roomCode, playerUuid, newHost.getUuid(), newHost.getPlayerName());
+                } else {
+                    // Fallback: if we can't find next host by timestamp, just pick first player
+                    Player fallbackHost = room.getPlayers().iterator().next();
+                    fallbackHost.setHost(true);
+                    room.setHostUuid(fallbackHost.getUuid());
+                    room.setHostName(fallbackHost.getPlayerName());
+                    log.warn("Host transferred in room {} using fallback method to {}", roomCode, fallbackHost.getUuid());
+                }
             }
 
             return false; // Room still exists
         }
         return false;
+    }
+
+    /**
+     * Find the next host: the player who joined right after the previous host
+     * If hostJoinedAt is null or no suitable player found, return the earliest joined player
+     */
+    private Player findNextHost(Room room, LocalDateTime hostJoinedAt) {
+        if (hostJoinedAt == null) {
+            // Fallback: return earliest joined player
+            return room.getPlayers().stream()
+                    .min((p1, p2) -> {
+                        if (p1.getJoinedAt() == null) return 1;
+                        if (p2.getJoinedAt() == null) return -1;
+                        return p1.getJoinedAt().compareTo(p2.getJoinedAt());
+                    })
+                    .orElse(null);
+        }
+
+        // Find the player who joined right after the host (smallest joinedAt that is greater than hostJoinedAt)
+        return room.getPlayers().stream()
+                .filter(p -> p.getJoinedAt() != null && p.getJoinedAt().isAfter(hostJoinedAt))
+                .min((p1, p2) -> p1.getJoinedAt().compareTo(p2.getJoinedAt()))
+                .orElseGet(() -> {
+                    // If no player joined after host, return the earliest joined player (wraparound)
+                    return room.getPlayers().stream()
+                            .min((p1, p2) -> {
+                                if (p1.getJoinedAt() == null) return 1;
+                                if (p2.getJoinedAt() == null) return -1;
+                                return p1.getJoinedAt().compareTo(p2.getJoinedAt());
+                            })
+                            .orElse(null);
+                });
     }
 
     /**
