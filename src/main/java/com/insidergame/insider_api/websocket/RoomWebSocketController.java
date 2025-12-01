@@ -475,7 +475,7 @@ public class RoomWebSocketController {
             }
 
             // Move endsAt earlier to start voting period; choose a short delay (e.g., 10 seconds) to allow clients to prepare
-            int voteDelaySeconds = 3;
+            int voteDelaySeconds = 0;
             var now = java.time.LocalDateTime.now();
             g.setEndsAt(now.plusSeconds(voteDelaySeconds));
 
