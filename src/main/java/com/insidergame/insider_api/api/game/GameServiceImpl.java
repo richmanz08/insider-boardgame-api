@@ -45,13 +45,31 @@ public class GameServiceImpl implements GameService {
                 return new ApiResponse<>(false, "Not enough players to start", null, null);
             }
 
-            // Pick random category/word
+            // Pick random category/word that hasn't been used in this room before
             List<CategoryEntity> categories = categoryService.getAllCategoriesService().getData();
             if (categories == null || categories.isEmpty()) {
                 return new ApiResponse<>(false, "No categories available", null, null);
             }
 
-            CategoryEntity pick = categories.get(new Random().nextInt(categories.size()));
+            // Get previously used words in this room
+            List<Game> previousGames = gameManager.getGamesForRoom(roomCode);
+            Set<String> usedWords = previousGames.stream()
+                    .map(Game::getWord)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+
+            // Filter out used words
+            List<CategoryEntity> availableCategories = categories.stream()
+                    .filter(cat -> !usedWords.contains(cat.getCategoryName()))
+                    .collect(Collectors.toList());
+
+            // If all words have been used, allow reusing them (reset)
+            if (availableCategories.isEmpty()) {
+                availableCategories = new ArrayList<>(categories);
+            }
+
+            // Pick random word from available categories
+            CategoryEntity pick = availableCategories.get(new Random().nextInt(availableCategories.size()));
             String word = pick.getCategoryName();
 
             // Assign roles: one MASTER, one INSIDER, rest CITIZEN
