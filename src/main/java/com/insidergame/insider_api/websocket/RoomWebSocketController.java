@@ -1,5 +1,6 @@
 package com.insidergame.insider_api.websocket;
 
+import com.insidergame.insider_api.api.game.GameFinishService;
 import com.insidergame.insider_api.dto.PlayerDto;
 import com.insidergame.insider_api.dto.RoomUpdateMessage;
 import com.insidergame.insider_api.enums.RoleType;
@@ -39,12 +40,12 @@ public class RoomWebSocketController {
     private final RoomManager roomManager;
     private final SimpMessagingTemplate messagingTemplate;
     private final GameService gameService;
-    private final com.insidergame.insider_api.service.GameFinishService gameFinishService;
+    private final GameFinishService gameFinishService;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     // Track pending scheduled "set room to PLAYING" tasks so we can cancel if someone un-readies
     private final Map<String, ScheduledFuture<?>> pendingPlayTasks = new ConcurrentHashMap<>();
 
-    public RoomWebSocketController(RoomManager roomManager, SimpMessagingTemplate messagingTemplate, GameService gameService, com.insidergame.insider_api.service.GameFinishService gameFinishService) {
+    public RoomWebSocketController(RoomManager roomManager, SimpMessagingTemplate messagingTemplate, GameService gameService, GameFinishService gameFinishService) {
         this.roomManager = roomManager;
         this.messagingTemplate = messagingTemplate;
         this.gameService = gameService;

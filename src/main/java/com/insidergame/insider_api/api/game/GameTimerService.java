@@ -1,4 +1,4 @@
-package com.insidergame.insider_api.service;
+package com.insidergame.insider_api.api.game;
 
 import com.insidergame.insider_api.dto.PlayerDto;
 import com.insidergame.insider_api.dto.RoomUpdateMessage;

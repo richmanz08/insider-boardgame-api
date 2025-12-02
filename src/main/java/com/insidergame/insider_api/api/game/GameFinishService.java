@@ -1,4 +1,4 @@
-package com.insidergame.insider_api.service;
+package com.insidergame.insider_api.api.game;
 
 import com.insidergame.insider_api.dto.PlayerDto;
 import com.insidergame.insider_api.dto.RoomUpdateMessage;
@@ -121,12 +121,49 @@ public class GameFinishService {
                     .players(players)
                     .hostUuid(room.getHostUuid())
                     .message("ROOM_RESET_AFTER_GAME")
+                    .type("ROOM_RESET_AFTER_GAME")
                     .build();
 
             messagingTemplate.convertAndSend("/topic/room/" + roomCode, msg);
             log.info("Broadcasted room reset to room {}", roomCode);
+
+            // ⭐ Send null game to all players' sessions to clear their activeGame state
+            sendNullGameToAllPlayers(roomCode, room);
+
         } catch (Exception ex) {
             log.error("Error broadcasting room reset: {}", ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Send null game to all players to clear their activeGame state
+     */
+    private void sendNullGameToAllPlayers(String roomCode, com.insidergame.insider_api.model.Room room) {
+        try {
+            Map<String, Object> nullGamePayload = new java.util.HashMap<>();
+            nullGamePayload.put("game", null);
+
+            for (var player : room.getPlayers()) {
+                if (player.getSessionId() != null) {
+                    org.springframework.messaging.simp.SimpMessageHeaderAccessor sha =
+                        org.springframework.messaging.simp.SimpMessageHeaderAccessor.create(
+                            org.springframework.messaging.simp.SimpMessageType.MESSAGE);
+                    sha.setSessionId(player.getSessionId());
+                    sha.setLeaveMutable(true);
+
+                    messagingTemplate.convertAndSendToUser(
+                        player.getSessionId(),
+                        "/queue/active_game",
+                        nullGamePayload,
+                        sha.getMessageHeaders()
+                    );
+
+                    log.info("Sent null game to player {} session {} after room reset",
+                        player.getUuid(), player.getSessionId());
+                }
+            }
+        } catch (Exception ex) {
+            log.error("Error sending null game to players: {}", ex.getMessage(), ex);
         }
     }
 
