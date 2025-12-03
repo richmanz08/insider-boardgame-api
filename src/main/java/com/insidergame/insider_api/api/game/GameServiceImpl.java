@@ -76,7 +76,7 @@ public class GameServiceImpl implements GameService {
             Map<String, RoleType> roles = assignRolesV2(players);
 
             // Create game with 60 seconds duration
-            int durationSeconds = 60;
+            int durationSeconds = 603;
             Game game = gameManager.createGame(roomCode, word, durationSeconds, roles);
 
             // Return created game; controller will handle broadcasting and scheduling finish
