@@ -1,5 +1,6 @@
 package com.insidergame.insider_api.api.game;
 
+import com.insidergame.insider_api.dto.GameHistoryDto;
 import com.insidergame.insider_api.enums.RoleType;
 import com.insidergame.insider_api.api.category.CategoryServiceImpl;
 import com.insidergame.insider_api.common.ApiResponse;
@@ -11,6 +12,7 @@ import com.insidergame.insider_api.model.Player;
 import com.insidergame.insider_api.model.Room;
 import com.insidergame.insider_api.service.GameService;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -32,23 +34,23 @@ public class GameServiceImpl implements GameService {
     public ApiResponse<Game> startGame(String roomCode, String triggerByUuid) {
         try {
             Room room = roomManager.getRoom(roomCode).orElse(null);
-            if (room == null) return new ApiResponse<>(false, "Room not found", null, null);
+            if (room == null) return new ApiResponse<>(false, "Room not found", null, HttpStatus.NOT_FOUND);
 
             // Prevent starting if a game already active in this room
             if (gameManager.getActiveGame(roomCode).isPresent()) {
-                return new ApiResponse<>(false, "Game already running", null, null);
+                return new ApiResponse<>(false, "Game already running", null, HttpStatus.CONFLICT);
             }
 
             // Collect players currently in room
             List<Player> players = new ArrayList<>(room.getPlayers());
             if (players.size() < 2) {
-                return new ApiResponse<>(false, "Not enough players to start", null, null);
+                return new ApiResponse<>(false, "Not enough players to start", null, HttpStatus.BAD_REQUEST);
             }
 
             // Pick random category/word that hasn't been used in this room before
             List<CategoryEntity> categories = categoryService.getAllCategoriesService().getData();
             if (categories == null || categories.isEmpty()) {
-                return new ApiResponse<>(false, "No categories available", null, null);
+                return new ApiResponse<>(false, "No categories available", null, HttpStatus.INTERNAL_SERVER_ERROR);
             }
 
             // Get previously used words in this room
@@ -80,9 +82,9 @@ public class GameServiceImpl implements GameService {
             Game game = gameManager.createGame(roomCode, word, durationSeconds, roles);
 
             // Return created game; controller will handle broadcasting and scheduling finish
-            return new ApiResponse<>(true, "Game started", game, null);
+            return new ApiResponse<>(true, "Game started", game, HttpStatus.CREATED);
         } catch (Exception e) {
-            return new ApiResponse<>(false, "Error starting game: " + e.getMessage(), null, null);
+            return new ApiResponse<>(false, "Error starting game: " + e.getMessage(), null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -155,20 +157,22 @@ public class GameServiceImpl implements GameService {
     public ApiResponse<Void> finishGame(String roomCode) {
         try {
             gameManager.finishGame(roomCode);
-            return new ApiResponse<>(true, "Game finished", null, null);
+            return new ApiResponse<>(true, "Game finished", null, HttpStatus.OK);
         } catch (Exception e) {
-            return new ApiResponse<>(false, "Error finishing game: " + e.getMessage(), null, null);
+            return new ApiResponse<>(false, "Error finishing game: " + e.getMessage(), null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @Override
     public ApiResponse<Game> getActiveGame(String roomCode) {
-        return new ApiResponse<>(true, "", gameManager.getActiveGame(roomCode).orElse(null), null);
+        return new ApiResponse<>(true, "", gameManager.getActiveGame(roomCode).orElse(null), HttpStatus.OK);
     }
 
     @Override
     public ApiResponse<List<Game>> getGamesForRoom(String roomCode) {
-        return new ApiResponse<>(true, "", gameManager.getGamesForRoom(roomCode), null);
+        List<Game> games = gameManager.getGamesForRoom(roomCode);
+        if (games == null) games = Collections.emptyList();
+        return new ApiResponse<>(true, "", games, HttpStatus.OK);
     }
 
     @Override
@@ -176,12 +180,12 @@ public class GameServiceImpl implements GameService {
         try {
             boolean changed = gameManager.markCardOpened(roomCode, playerUuid);
             if (changed) {
-                return new ApiResponse<>(true, "Card opened", true, null);
+                return new ApiResponse<>(true, "Card opened", true, HttpStatus.OK);
             } else {
-                return new ApiResponse<>(false, "Not changed or no active game", false, null);
+                return new ApiResponse<>(false, "Not changed or no active game", false, HttpStatus.BAD_REQUEST);
             }
         } catch (Exception ex) {
-            return new ApiResponse<>(false, ex.getMessage(), false, null);
+            return new ApiResponse<>(false, ex.getMessage(), false, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -190,12 +194,12 @@ public class GameServiceImpl implements GameService {
         try {
             var opt = gameManager.startCountdown(roomCode);
             if (opt.isPresent()) {
-                return new ApiResponse<>(true, "Countdown started", opt.get(), null);
+                return new ApiResponse<>(true, "Countdown started", opt.get(), HttpStatus.OK);
             } else {
-                return new ApiResponse<>(false, "No active game to start countdown", null, null);
+                return new ApiResponse<>(false, "No active game to start countdown", null, HttpStatus.BAD_REQUEST);
             }
         } catch (Exception ex) {
-            return new ApiResponse<>(false, ex.getMessage(), null, null);
+            return new ApiResponse<>(false, ex.getMessage(), null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -204,11 +208,11 @@ public class GameServiceImpl implements GameService {
         try {
             var tally = gameManager.recordVote(roomCode, voterUuid, targetUuid);
             if (tally == null || tally.isEmpty()) {
-                return new ApiResponse<>(false, "Failed to record vote", false, null);
+                return new ApiResponse<>(false, "Failed to record vote", false, HttpStatus.BAD_REQUEST);
             }
-            return new ApiResponse<>(true, "Vote cast", true, null);
+            return new ApiResponse<>(true, "Vote cast", true, HttpStatus.OK);
         } catch (Exception ex) {
-            return new ApiResponse<>(false, ex.getMessage(), false, null);
+            return new ApiResponse<>(false, ex.getMessage(), false, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -217,7 +221,7 @@ public class GameServiceImpl implements GameService {
         try {
             var gameOpt = gameManager.getActiveGame(roomCode);
             if (gameOpt.isEmpty()) {
-                return new ApiResponse<>(false, "No active game found", null, null);
+                return new ApiResponse<>(false, "No active game found", null, HttpStatus.NOT_FOUND);
             }
 
             Game game = gameOpt.get();
@@ -230,10 +234,99 @@ public class GameServiceImpl implements GameService {
 //            gameManager.finishGame(roomCode);
 //            game.setFinished(true);
 
-            return new ApiResponse<>(true, "Game finished with scoring", game, null);
+            return new ApiResponse<>(true, "Game finished with scoring", game, HttpStatus.OK);
         } catch (Exception ex) {
-            return new ApiResponse<>(false, "Error finishing game: " + ex.getMessage(), null, null);
+            return new ApiResponse<>(false, "Error finishing game: " + ex.getMessage(), null, HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Override
+    public ApiResponse<List<GameHistoryDto>> getGameHistory(String roomCode) {
+        try {
+            List<Game> games = gameManager.getGamesForRoom(roomCode);
+            if (games == null) games = Collections.emptyList();
+            List<GameHistoryDto> history = games.stream()
+                    .map(this::convertToHistoryDto)
+                    .collect(Collectors.toList());
+            return new ApiResponse<>(true, "Game history retrieved", history, HttpStatus.OK);
+        } catch (Exception ex) {
+            return new ApiResponse<>(false, "Error retrieving game history: " + ex.getMessage(), null, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    /**
+     * Convert Game model to GameHistoryDto
+     */
+    private GameHistoryDto convertToHistoryDto(Game game) {
+        // Calculate scores from game summary if available
+        Map<String, Integer> scores = null;
+        if (game.getSummary() != null && game.getSummary().getScores() != null) {
+            scores = game.getSummary().getScores();
+        }
+
+        GameHistoryDto dto = GameHistoryDto.builder()
+                .id(game.getId())
+                .roomCode(game.getRoomCode())
+                .word(game.getWord())
+                .wordRevealed(game.isWordRevealed())
+                .startedAt(game.getStartedAt())
+                .endsAt(game.getEndsAt())
+                .durationSeconds(game.getDurationSeconds())
+                .finished(game.isFinished())
+                .players(game.getPlayerInGame())
+                .roles(game.getRoles())
+                .cardOpened(game.getCardOpened())
+                .votes(game.getVotes())
+                .scores(scores)
+                .build();
+
+        // Calculate vote result if votes exist
+        if (game.getVotes() != null && !game.getVotes().isEmpty()) {
+            Map<String, Integer> voteTally = new HashMap<>();
+            for (String targetUuid : game.getVotes().values()) {
+                voteTally.put(targetUuid, voteTally.getOrDefault(targetUuid, 0) + 1);
+            }
+
+            // Find most voted player
+            String mostVotedUuid = null;
+            int mostVotedCount = 0;
+            for (Map.Entry<String, Integer> entry : voteTally.entrySet()) {
+                if (entry.getValue() > mostVotedCount) {
+                    mostVotedCount = entry.getValue();
+                    mostVotedUuid = entry.getKey();
+                }
+            }
+
+            // Find insider
+            String insiderUuid = null;
+            if (game.getRoles() != null) {
+                for (Map.Entry<String, RoleType> entry : game.getRoles().entrySet()) {
+                    if (entry.getValue() == RoleType.INSIDER) {
+                        insiderUuid = entry.getKey();
+                        break;
+                    }
+                }
+            }
+
+            GameHistoryDto.VoteResultDto voteResult = GameHistoryDto.VoteResultDto.builder()
+                    .insiderUuid(insiderUuid)
+                    .mostVotedUuid(mostVotedUuid)
+                    .mostVotedCount(mostVotedCount)
+                    .voteTally(voteTally)
+                    .build();
+
+            dto.setVoteResult(voteResult);
+
+            // Determine game outcome
+            if (insiderUuid != null && insiderUuid.equals(mostVotedUuid)) {
+                dto.setGameOutcome("INSIDER_FOUND");
+            } else if (insiderUuid != null) {
+                dto.setGameOutcome("INSIDER_HIDDEN");
+            } else {
+                dto.setGameOutcome("NO_INSIDER");
+            }
+        }
+
+        return dto;
     }
 
     private com.insidergame.insider_api.model.GameSummary calculateGameSummary(Game game) {

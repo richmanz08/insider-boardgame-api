@@ -38,95 +38,10 @@ public class GameController {
      */
     @GetMapping("/{roomCode}/history")
     public ResponseEntity<ApiResponse<List<GameHistoryDto>>> getGameHistory(@PathVariable String roomCode) {
-        ApiResponse<List<Game>> resp = gameService.getGamesForRoom(roomCode);
-
-        if (!resp.isSuccess() || resp.getData() == null) {
-            return ResponseEntity.status(resp.getStatus())
-                    .body(new ApiResponse<>(false, resp.getMessage(), null, resp.getStatus()));
-        }
-
-        // Convert Game to GameHistoryDto
-        List<GameHistoryDto> history = resp.getData().stream()
-                .map(this::convertToHistoryDto)
-                .collect(Collectors.toList());
-
-        return ResponseEntity.ok(new ApiResponse<>(true, "Game history retrieved", history, null));
+        ApiResponse<List<GameHistoryDto>> resp = gameService.getGameHistory(roomCode);
+        return ResponseEntity.status(resp.getStatus()).body(resp);
     }
 
-    /**
-     * Convert Game model to GameHistoryDto
-     */
-    private GameHistoryDto convertToHistoryDto(Game game) {
-        // Calculate scores from game summary if available
-        Map<String, Integer> scores = null;
-        if (game.getSummary() != null && game.getSummary().getScores() != null) {
-            scores = game.getSummary().getScores();
-        }
 
-        GameHistoryDto dto = GameHistoryDto.builder()
-                .id(game.getId())
-                .roomCode(game.getRoomCode())
-                .word(game.getWord())
-                .wordRevealed(game.isWordRevealed())
-                .startedAt(game.getStartedAt())
-                .endsAt(game.getEndsAt())
-                .durationSeconds(game.getDurationSeconds())
-                .finished(game.isFinished())
-                .players(game.getPlayerInGame())
-                .roles(game.getRoles())
-                .cardOpened(game.getCardOpened())
-                .votes(game.getVotes())
-                .scores(scores)
-                .build();
-
-        // Calculate vote result if votes exist
-        if (game.getVotes() != null && !game.getVotes().isEmpty()) {
-            Map<String, Integer> voteTally = new HashMap<>();
-            for (String targetUuid : game.getVotes().values()) {
-                voteTally.put(targetUuid, voteTally.getOrDefault(targetUuid, 0) + 1);
-            }
-
-            // Find most voted player
-            String mostVotedUuid = null;
-            int mostVotedCount = 0;
-            for (Map.Entry<String, Integer> entry : voteTally.entrySet()) {
-                if (entry.getValue() > mostVotedCount) {
-                    mostVotedCount = entry.getValue();
-                    mostVotedUuid = entry.getKey();
-                }
-            }
-
-            // Find insider
-            String insiderUuid = null;
-            if (game.getRoles() != null) {
-                for (Map.Entry<String, RoleType> entry : game.getRoles().entrySet()) {
-                    if (entry.getValue() == RoleType.INSIDER) {
-                        insiderUuid = entry.getKey();
-                        break;
-                    }
-                }
-            }
-
-            GameHistoryDto.VoteResultDto voteResult = GameHistoryDto.VoteResultDto.builder()
-                    .insiderUuid(insiderUuid)
-                    .mostVotedUuid(mostVotedUuid)
-                    .mostVotedCount(mostVotedCount)
-                    .voteTally(voteTally)
-                    .build();
-
-            dto.setVoteResult(voteResult);
-
-            // Determine game outcome
-            if (insiderUuid != null && insiderUuid.equals(mostVotedUuid)) {
-                dto.setGameOutcome("INSIDER_FOUND");
-            } else if (insiderUuid != null) {
-                dto.setGameOutcome("INSIDER_HIDDEN");
-            } else {
-                dto.setGameOutcome("NO_INSIDER");
-            }
-        }
-
-        return dto;
-    }
 }
 

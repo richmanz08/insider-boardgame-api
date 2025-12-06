@@ -1,6 +1,7 @@
 package com.insidergame.insider_api.service;
 
 import com.insidergame.insider_api.common.ApiResponse;
+import com.insidergame.insider_api.dto.GameHistoryDto;
 import com.insidergame.insider_api.model.Game;
 
 import java.util.List;
@@ -21,4 +22,6 @@ public interface GameService {
 
     // Finish game with scoring and summary calculation
     ApiResponse<Game> finishGameWithScoring(String roomCode);
+
+    ApiResponse<List<GameHistoryDto>> getGameHistory(String roomCode);
 }

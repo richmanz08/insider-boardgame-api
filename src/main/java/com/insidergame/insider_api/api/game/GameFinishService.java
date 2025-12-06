@@ -128,7 +128,7 @@ public class GameFinishService {
             log.info("Broadcasted room reset to room {}", roomCode);
 
             // ⭐ Send null game to all players' sessions to clear their activeGame state
-            sendNullGameToAllPlayers(roomCode, room);
+            sendNullGameToAllPlayers(room);
 
         } catch (Exception ex) {
             log.error("Error broadcasting room reset: {}", ex.getMessage(), ex);
@@ -138,7 +138,7 @@ public class GameFinishService {
     /**
      * Send null game to all players to clear their activeGame state
      */
-    private void sendNullGameToAllPlayers(String roomCode, com.insidergame.insider_api.model.Room room) {
+    private void sendNullGameToAllPlayers(com.insidergame.insider_api.model.Room room) {
         try {
             Map<String, Object> nullGamePayload = new java.util.HashMap<>();
             nullGamePayload.put("game", null);
@@ -164,21 +164,6 @@ public class GameFinishService {
             }
         } catch (Exception ex) {
             log.error("Error sending null game to players: {}", ex.getMessage(), ex);
-        }
-    }
-
-    /**
-     * Cleanup when service is destroyed
-     */
-    public void shutdown() {
-        scheduler.shutdown();
-        try {
-            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
-                scheduler.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            scheduler.shutdownNow();
-            Thread.currentThread().interrupt();
         }
     }
 }

@@ -643,23 +643,7 @@ public class RoomWebSocketController {
             // leave status null if mapping fails
         }
 
-        // include active game summary if available
-//        try {
-//            var gr = gameService.getActiveGame(room.getRoomCode());
-//            if (gr != null && gr.getData() != null) {
-//                Game g = gr.getData();
-//                GameSummaryDto summary = GameSummaryDto.builder()
-//                        .id(g.getId() == null ? null : g.getId().toString())
-//                        .word(null) // Do not broadcast word publicly
-//                        .startedAt(g.getStartedAt() == null ? null : g.getStartedAt().toString())
-//                        .endsAt(g.getEndsAt() == null ? null : g.getEndsAt().toString())
-//                        .durationSeconds(g.getDurationSeconds())
-//                        .finished(g.isFinished())
-//                        .cardOpened(g.getCardOpened())
-//                        .build();
-//                builder.activeGame(summary);
-//            }
-//        } catch (Exception ignored) {}
+
 
         return builder.build();
     }
