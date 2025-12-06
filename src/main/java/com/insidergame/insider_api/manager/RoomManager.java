@@ -40,11 +40,10 @@ public class RoomManager {
                 .build();
 
         // Add host as first player
-        String playerName = actualHostName;
 
         Player host = Player.builder()
                 .uuid(hostUuid)
-                .playerName(playerName)
+                .playerName(actualHostName)
                 .joinedAt(LocalDateTime.now())
                 .isHost(true)
                 .build();
@@ -195,8 +194,8 @@ public class RoomManager {
     /**
      * Delete room
      */
-    public boolean deleteRoom(String roomCode) {
-        return rooms.remove(roomCode) != null;
+    public void deleteRoom(String roomCode) {
+        rooms.remove(roomCode);
     }
 
     /**
@@ -236,16 +235,6 @@ public class RoomManager {
      */
     public int getTotalRooms() {
         return rooms.size();
-    }
-
-    /**
-     * Get room by player UUID
-     */
-    public Optional<Room> getRoomByPlayerUuid(String playerUuid) {
-        return rooms.values().stream()
-                .filter(room -> room.getPlayers().stream()
-                        .anyMatch(player -> player.getUuid().equals(playerUuid)))
-                .findFirst();
     }
 
     /**

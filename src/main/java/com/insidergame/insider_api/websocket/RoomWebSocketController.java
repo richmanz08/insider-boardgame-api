@@ -23,6 +23,7 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Controller;
 
 import java.time.format.DateTimeFormatter;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -622,7 +623,10 @@ public class RoomWebSocketController {
     }
 
     private RoomUpdateMessage buildRoomUpdateMessage(Room room, String type) {
-        List<PlayerDto> playerDtos = room.getPlayers().stream().map(this::convertToPlayerDto).collect(Collectors.toList());
+        List<PlayerDto> playerDos = room.getPlayers().stream()
+                .map(this::convertToPlayerDto)
+                .sorted(Comparator.comparing(PlayerDto::getJoinedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                .collect(Collectors.toList());
 
         RoomUpdateMessage.RoomUpdateMessageBuilder builder = RoomUpdateMessage.builder()
                 .type(type)
@@ -632,7 +636,7 @@ public class RoomWebSocketController {
                 .currentPlayers(room.getCurrentPlayers())
                 .hostUuid(room.getHostUuid())
                 .status(null)
-                .players(playerDtos)
+                .players(playerDos)
                 .message(getMessageForType(type));
 
 
